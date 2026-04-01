@@ -8,9 +8,11 @@ const PORT = 3001;
 const MARKER_FILE = '.openclaw.json';
 const DASHBOARD_FILE = path.join(__dirname, 'dashboard.html');
 
-// Root directories to scan for project folders containing .openclaw.json
-// Add your project root paths here
-let CONFIG_FILE = path.join(__dirname, 'openclaw.config.json');
+// Local data directory for config and datastores (gitignored)
+const LOCAL_DIR = path.join(__dirname, 'local');
+if (!fs.existsSync(LOCAL_DIR)) fs.mkdirSync(LOCAL_DIR);
+
+let CONFIG_FILE = path.join(LOCAL_DIR, 'openclaw.config.json');
 let config = { projectRoots: [] };
 
 function loadConfig() {
@@ -332,6 +334,87 @@ async function handleMoveProject(req, res, id) {
   }
 }
 
+// ── Upgrade Reticulator ──
+const RETIC_FILE = config.reticulatorPath || path.join(LOCAL_DIR, 'upgrade-reticulator.json');
+
+function loadReticulatorItems() {
+  try {
+    if (fs.existsSync(RETIC_FILE)) {
+      const data = JSON.parse(fs.readFileSync(RETIC_FILE, 'utf-8'));
+      return data.items || [];
+    }
+  } catch (e) {
+    console.error('Error loading reticulator:', e.message);
+  }
+  return [];
+}
+
+function saveReticulatorItems(items) {
+  fs.writeFileSync(RETIC_FILE, JSON.stringify({ items }, null, 2));
+}
+
+function handleGetUpgradeItems(req, res) {
+  sendJSON(res, 200, loadReticulatorItems());
+}
+
+async function handleCreateUpgradeItem(req, res) {
+  const body = await readBody(req);
+  const now = new Date().toISOString();
+  const item = {
+    id: 'ur_' + randomBytes(4).toString('hex'),
+    title: body.title || 'Untitled',
+    category: body.category || 'watch_item',
+    area: body.area || 'general',
+    status: body.status || 'active',
+    priority: body.priority || 'medium',
+    summary: body.summary || '',
+    whyItMatters: body.whyItMatters || '',
+    checklist: body.checklist || [],
+    verification: body.verification || '',
+    tags: body.tags || [],
+    notes: body.notes || [],
+    reviewStatus: body.reviewStatus || 'not_reviewed',
+    reviewedForVersion: body.reviewedForVersion || null,
+    lastReviewedAt: body.lastReviewedAt || null,
+    currentFinding: body.currentFinding || null,
+    reportedUpstream: body.reportedUpstream || false,
+    lastCheckedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const items = loadReticulatorItems();
+  items.push(item);
+  saveReticulatorItems(items);
+  sendJSON(res, 201, item);
+}
+
+async function handleUpdateUpgradeItem(req, res, id) {
+  const items = loadReticulatorItems();
+  const idx = items.findIndex(i => i.id === id);
+  if (idx === -1) return sendJSON(res, 404, { error: 'Item not found' });
+
+  const updates = await readBody(req);
+  const merged = {
+    ...items[idx],
+    ...updates,
+    id: items[idx].id,
+    createdAt: items[idx].createdAt,
+    updatedAt: new Date().toISOString(),
+  };
+  items[idx] = merged;
+  saveReticulatorItems(items);
+  sendJSON(res, 200, merged);
+}
+
+function handleDeleteUpgradeItem(req, res, id) {
+  let items = loadReticulatorItems();
+  const idx = items.findIndex(i => i.id === id);
+  if (idx === -1) return sendJSON(res, 404, { error: 'Item not found' });
+  items.splice(idx, 1);
+  saveReticulatorItems(items);
+  sendJSON(res, 200, { message: 'Item removed', id });
+}
+
 // ── Router ──
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -375,6 +458,20 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'DELETE') return handleDeleteProject(req, res, id);
     }
 
+    // Upgrade Reticulator routes
+    if (pathname === '/api/upgrade-items' && req.method === 'GET') {
+      return handleGetUpgradeItems(req, res);
+    }
+    if (pathname === '/api/upgrade-items' && req.method === 'POST') {
+      return await handleCreateUpgradeItem(req, res);
+    }
+    const upgradeMatch = pathname.match(/^\/api\/upgrade-items\/([^/]+)$/);
+    if (upgradeMatch) {
+      const id = decodeURIComponent(upgradeMatch[1]);
+      if (req.method === 'PUT') return await handleUpdateUpgradeItem(req, res, id);
+      if (req.method === 'DELETE') return handleDeleteUpgradeItem(req, res, id);
+    }
+
     if (pathname === '/api/browse' && req.method === 'GET') {
       return handleBrowse(req, res, url);
     }
@@ -413,5 +510,6 @@ server.listen(PORT, () => {
   console.log(`  API:        http://localhost:${PORT}/api/projects`);
   console.log(`  Config:     ${CONFIG_FILE}`);
   console.log(`  Scanning:   ${config.projectRoots.join(', ')}`);
-  console.log(`  Projects:   ${discoverProjects().length} found\n`);
+  console.log(`  Projects:   ${discoverProjects().length} found`);
+  console.log(`  Reticulator: ${RETIC_FILE} (${loadReticulatorItems().length} items)\n`);
 });

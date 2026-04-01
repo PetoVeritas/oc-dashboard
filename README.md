@@ -105,6 +105,7 @@ Each tracked project folder contains a `.openclaw.json`:
 - **Project folder editing** — relocate a project's marker file from the edit modal
 - **Undo system** — snapshot-based, up to 30 levels deep (Ctrl+Z supported)
 - **Offline fallback** — works in-memory if the server is unreachable
+- **Upgrade Reticulator** — operations watchlist for OC upgrade concerns, with its own independent datastore
 - **Zero dependencies** — pure Node.js server, no npm install required
 
 ## API Endpoints
@@ -121,6 +122,10 @@ Each tracked project folder contains a `.openclaw.json`:
 | DELETE | `/api/pinned` | Unpin a directory |
 | GET | `/api/config` | View config |
 | PUT | `/api/config` | Update config |
+| GET | `/api/upgrade-items` | List all reticulator items |
+| POST | `/api/upgrade-items` | Create upgrade item |
+| PUT | `/api/upgrade-items/:id` | Update upgrade item |
+| DELETE | `/api/upgrade-items/:id` | Remove upgrade item |
 
 ## Configuration
 
@@ -138,11 +143,18 @@ Each tracked project folder contains a `.openclaw.json`:
 
 ## Roadmap
 
+See **[ROADMAP.md](ROADMAP.md)** for the full roadmap with details on each planned feature.
+
+Highlights:
+- [x] Upgrade Reticulator — operations dashboard for OC upgrade concerns
+- [x] Kanban board with drag-and-drop
+- [x] List view with sortable columns
+- [x] Folder browser with pinning
 - [ ] Electron wrapper for native desktop app
-- [ ] Team assignment and collaboration
 - [ ] Timeline / Gantt view
 - [ ] Analytics dashboard
-- [ ] Startup script as a system service (launchd)
+- [ ] Team assignment and collaboration
+- [ ] Startup as system service (launchd)
 
 ## License
 

@@ -226,6 +226,112 @@ async function handleAddRoot(req, res) {
   sendJSON(res, 200, config);
 }
 
+// GET /api/browse?dir=/some/path&showHidden=true — list subdirectories for folder picker
+function handleBrowse(req, res, url) {
+  const os = require('os');
+  let dir = url.searchParams.get('dir') || os.homedir();
+  const showHidden = url.searchParams.get('showHidden') === 'true';
+
+  // Resolve ~ to home directory
+  if (dir.startsWith('~')) dir = path.join(os.homedir(), dir.slice(1));
+
+  // Resolve to absolute
+  dir = path.resolve(dir);
+
+  if (!fs.existsSync(dir)) {
+    return sendJSON(res, 404, { error: 'Directory not found', path: dir });
+  }
+
+  try {
+    const stat = fs.statSync(dir);
+    if (!stat.isDirectory()) {
+      return sendJSON(res, 400, { error: 'Not a directory', path: dir });
+    }
+
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const folders = entries
+      .filter(e => {
+        if (!e.isDirectory()) return false;
+        if (e.name.startsWith('.') && !showHidden) return false;
+        return true;
+      })
+      .map(e => ({
+        name: e.name,
+        path: path.join(dir, e.name),
+        hasMarker: fs.existsSync(path.join(dir, e.name, MARKER_FILE)),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    sendJSON(res, 200, {
+      current: dir,
+      parent: path.dirname(dir) !== dir ? path.dirname(dir) : null,
+      folders,
+      pinnedDirs: config.pinnedDirs || [],
+    });
+  } catch (e) {
+    sendJSON(res, 500, { error: 'Cannot read directory: ' + e.message });
+  }
+}
+
+// POST /api/pinned — add a pinned directory
+async function handleAddPinned(req, res) {
+  const { path: dirPath } = await readBody(req);
+  if (!dirPath) return sendJSON(res, 400, { error: 'path is required' });
+  if (!config.pinnedDirs) config.pinnedDirs = [];
+  if (!config.pinnedDirs.includes(dirPath)) {
+    config.pinnedDirs.push(dirPath);
+    saveConfig();
+  }
+  sendJSON(res, 200, { pinnedDirs: config.pinnedDirs });
+}
+
+// DELETE /api/pinned — remove a pinned directory
+async function handleRemovePinned(req, res) {
+  const { path: dirPath } = await readBody(req);
+  if (!config.pinnedDirs) config.pinnedDirs = [];
+  config.pinnedDirs = config.pinnedDirs.filter(p => p !== dirPath);
+  saveConfig();
+  sendJSON(res, 200, { pinnedDirs: config.pinnedDirs });
+}
+
+// PUT /api/projects/:id/move — move a project to a new folder
+async function handleMoveProject(req, res, id) {
+  const project = findProjectById(id);
+  if (!project) return sendJSON(res, 404, { error: 'Project not found' });
+
+  const { newFolderPath } = await readBody(req);
+  if (!newFolderPath) return sendJSON(res, 400, { error: 'newFolderPath is required' });
+
+  const newMarkerPath = path.join(newFolderPath, MARKER_FILE);
+  if (fs.existsSync(newMarkerPath)) {
+    return sendJSON(res, 409, { error: 'A project already exists in the target folder' });
+  }
+
+  // Create new folder if needed
+  if (!fs.existsSync(newFolderPath)) {
+    fs.mkdirSync(newFolderPath, { recursive: true });
+  }
+
+  try {
+    // Read current marker, write to new location, delete old
+    const data = JSON.parse(fs.readFileSync(project._markerPath, 'utf-8'));
+    data.updatedAt = new Date().toISOString();
+    fs.writeFileSync(newMarkerPath, JSON.stringify(data, null, 2));
+    fs.unlinkSync(project._markerPath);
+
+    // Add new parent to roots if not tracked
+    const parentDir = path.dirname(newFolderPath);
+    if (!config.projectRoots.includes(parentDir)) {
+      config.projectRoots.push(parentDir);
+      saveConfig();
+    }
+
+    sendJSON(res, 200, { ...data, _folderPath: newFolderPath });
+  } catch (e) {
+    sendJSON(res, 500, { error: 'Failed to move project: ' + e.message });
+  }
+}
+
 // ── Router ──
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -255,12 +361,29 @@ const server = http.createServer(async (req, res) => {
       return await handleCreateProject(req, res);
     }
 
-    const projectMatch = pathname.match(/^\/api\/projects\/(.+)$/);
+    // Project move route (must be before generic project match)
+    const moveMatch = pathname.match(/^\/api\/projects\/(.+)\/move$/);
+    if (moveMatch && req.method === 'PUT') {
+      return await handleMoveProject(req, res, decodeURIComponent(moveMatch[1]));
+    }
+
+    const projectMatch = pathname.match(/^\/api\/projects\/([^/]+)$/);
     if (projectMatch) {
       const id = decodeURIComponent(projectMatch[1]);
       if (req.method === 'GET') return handleGetProject(req, res, id);
       if (req.method === 'PUT') return await handleUpdateProject(req, res, id);
       if (req.method === 'DELETE') return handleDeleteProject(req, res, id);
+    }
+
+    if (pathname === '/api/browse' && req.method === 'GET') {
+      return handleBrowse(req, res, url);
+    }
+
+    if (pathname === '/api/pinned' && req.method === 'POST') {
+      return await handleAddPinned(req, res);
+    }
+    if (pathname === '/api/pinned' && req.method === 'DELETE') {
+      return await handleRemovePinned(req, res);
     }
 
     if (pathname === '/api/config' && req.method === 'GET') {

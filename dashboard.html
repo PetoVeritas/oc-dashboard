@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --surface3: #2e3344;
+    --border: #2e3344;
+    --text: #e4e6ef;
+    --text-dim: #8b8fa3;
+    --accent: #6c5ce7;
+    --accent-glow: rgba(108,92,231,0.15);
+    --green: #00b894;
+    --green-bg: rgba(0,184,148,0.12);
+    --yellow: #fdcb6e;
+    --yellow-bg: rgba(253,203,110,0.12);
+    --orange: #e17055;
+    --orange-bg: rgba(225,112,85,0.12);
+    --red: #d63031;
+    --red-bg: rgba(214,48,49,0.12);
+    --blue: #74b9ff;
+    --blue-bg: rgba(116,185,255,0.12);
+    --shadow: 0 2px 8px rgba(0,0,0,0.25);
+    --shadow-lg: 0 6px 20px rgba(0,0,0,0.35);
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .layout { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+  .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 0 20px 24px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; }
+  .sidebar-brand h1 { font-size: 15px; font-weight: 700; }
+  .sidebar-brand h1 span { color: var(--accent); }
+  .sidebar-nav { padding: 16px 12px; flex: 1; overflow-y: auto; }
+  .nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); padding: 12px 12px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 13px; color: var(--text-dim); cursor: pointer; margin-bottom: 2px; transition: background 0.15s, color 0.15s; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--accent-glow); color: var(--accent); font-weight: 600; }
+  .nav-icon { width: 18px; text-align: center; font-size: 14px; }
+  .nav-count { margin-left: auto; font-size: 11px; background: var(--surface2); padding: 2px 8px; border-radius: 10px; font-weight: 500; color: var(--text-dim); }
+  .nav-project-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+  .sidebar-user { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--blue)); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .avatar-name { font-size: 13px; font-weight: 500; }
+  .avatar-role { font-size: 11px; color: var(--text-dim); }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .topbar h2 { font-size: 16px; font-weight: 700; }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .search { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; color: var(--text); font-size: 13px; width: 200px; outline: none; }
+  .search::placeholder { color: var(--text-dim); }
+  .search:focus { border-color: var(--accent); }
+  .btn { padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); background: var(--surface2); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+  .btn:hover { border-color: var(--accent); color: var(--text); }
+  .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-primary:hover { background: #7c6ef0; }
+
+  /* Summary */
+  .summary { display: flex; gap: 12px; padding: 18px 28px; border-bottom: 1px solid var(--border); }
+  .stat-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 4px; }
+  .stat-value { font-size: 24px; font-weight: 700; }
+
+  /* Board */
+  .board { display: flex; gap: 20px; padding: 24px 28px; overflow-x: auto; flex: 1; align-items: flex-start; }
+  .column { min-width: 320px; max-width: 340px; flex-shrink: 0; }
+  .col-header { display: flex; align-items: center; gap: 8px; padding: 0 4px 14px; }
+  .col-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .col-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); }
+  .col-count { font-size: 11px; color: var(--text-dim); background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
+  .col-cards { display: flex; flex-direction: column; gap: 12px; min-height: 60px; padding: 4px; border-radius: 12px; transition: background 0.2s; }
+  .col-cards.drag-over { background: var(--accent-glow); }
+
+  /* Kanban Card */
+  .k-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); transition: border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.15s; cursor: grab; }
+  .k-card:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+  .k-card.dragging { opacity: 0.4; transform: rotate(2deg); }
+  .k-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; }
+  .k-title { font-size: 15px; font-weight: 600; }
+  .k-priority { font-size: 10px; padding: 3px 9px; border-radius: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0; }
+  .priority-high { background: var(--red-bg); color: var(--red); }
+  .priority-med { background: var(--yellow-bg); color: var(--yellow); }
+  .priority-low { background: var(--green-bg); color: var(--green); }
+  .k-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px; }
+  .k-progress { margin-bottom: 16px; }
+  .k-progress-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; }
+  .k-progress-label { color: var(--text-dim); }
+  .k-progress-pct { font-weight: 600; }
+  .k-progress-bar { height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .k-progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .fill-green { background: linear-gradient(90deg, var(--green), #55efc4); }
+  .fill-yellow { background: linear-gradient(90deg, var(--yellow), #ffeaa7); }
+  .fill-blue { background: linear-gradient(90deg, var(--blue), #a29bfe); }
+  .fill-orange { background: linear-gradient(90deg, var(--orange), #fab1a0); }
+  .k-components { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .comp-chip { padding: 4px 10px; border-radius: 6px; font-size: 11px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); cursor: pointer; transition: all 0.15s; user-select: none; }
+  .comp-chip:hover { border-color: var(--accent); }
+  .comp-chip.done { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+  .comp-chip.wip { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-bg); }
+  .k-note { background: var(--surface2); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--text-dim); line-height: 1.5; border-left: 3px solid var(--accent); margin-bottom: 16px; cursor: pointer; transition: border-color 0.15s; }
+  .k-note:hover { border-left-color: #7c6ef0; }
+  .k-note-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--accent); margin-bottom: 3px; }
+  .k-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--border); }
+  .k-date { font-size: 11px; color: var(--text-dim); }
+  .k-actions { display: flex; gap: 6px; }
+  .k-btn { width: 26px; height: 26px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; transition: border-color 0.15s, color 0.15s; }
+  .k-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .k-btn.delete:hover { border-color: var(--red); color: var(--red); }
+  .add-card { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 14px; border: 2px dashed var(--border); border-radius: 12px; color: var(--text-dim); font-size: 13px; cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+  .add-card:hover { border-color: var(--accent); color: var(--accent); }
+  .col-empty { padding: 20px; text-align: center; color: var(--text-dim); font-size: 12px; border: 1px dashed var(--border); border-radius: 12px; opacity: 0.5; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 520px; max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-lg); transform: translateY(20px); transition: transform 0.25s; }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+  .modal-header h3 { font-size: 16px; font-weight: 700; }
+  .modal-close { width: 28px; height: 28px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; }
+  .modal-close:hover { border-color: var(--red); color: var(--red); }
+  .modal-body { padding: 24px; }
+  .form-group { margin-bottom: 18px; }
+  .form-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 6px; }
+  .form-input, .form-textarea, .form-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.15s; }
+  .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); }
+  .form-textarea { resize: vertical; min-height: 70px; }
+  .form-select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b8fa3'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+  .form-select option { background: var(--surface2); color: var(--text); }
+  .form-row { display: flex; gap: 12px; }
+  .form-row .form-group { flex: 1; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); }
+
+  /* Components editor */
+  .comp-editor { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .comp-editor .comp-chip { position: relative; padding-right: 24px; }
+  .comp-remove { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 10px; cursor: pointer; opacity: 0.5; }
+  .comp-remove:hover { opacity: 1; color: var(--red); }
+  .comp-add-row { display: flex; gap: 8px; }
+  .comp-add-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text); font-size: 12px; outline: none; }
+  .comp-add-input:focus { border-color: var(--accent); }
+  .comp-add-btn { padding: 6px 12px; border-radius: 6px; background: var(--accent); border: none; color: white; font-size: 12px; cursor: pointer; white-space: nowrap; }
+
+  /* Note editor */
+  .note-edit-area { width: 100%; background: var(--surface2); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 12px; font-family: inherit; outline: none; resize: vertical; min-height: 50px; line-height: 1.5; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--green); border-radius: 10px; padding: 12px 20px; font-size: 13px; color: var(--green); box-shadow: var(--shadow-lg); transform: translateY(80px); opacity: 0; transition: all 0.3s; z-index: 2000; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Confirm dialog */
+  .confirm-body { text-align: center; padding: 32px 24px; }
+  .confirm-body p { font-size: 14px; color: var(--text-dim); margin-bottom: 24px; line-height: 1.5; }
+  .confirm-body .project-name { color: var(--text); font-weight: 600; }
+  .confirm-actions { display: flex; justify-content: center; gap: 12px; }
+  .btn-danger { background: var(--red); color: white; border-color: var(--red); }
+  .btn-danger:hover { background: #e74c3c; }
+
+  /* Undo button */
+  .undo-btn { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); background: var(--surface2); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+  .undo-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+  .undo-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .undo-btn .undo-icon { font-size: 15px; }
+  .undo-btn .undo-label { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .undo-badge { font-size: 10px; background: var(--accent); color: white; padding: 1px 6px; border-radius: 8px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo">🦞</div>
+      <h1><span>Open</span>Claw</h1>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-item active"><span class="nav-icon">▦</span> Board View</div>
+      <div class="nav-item"><span class="nav-icon">☰</span> List View</div>
+      <div class="nav-item"><span class="nav-icon">◫</span> Timeline</div>
+      <div class="nav-item"><span class="nav-icon">◉</span> Analytics</div>
+      <div class="nav-label">Projects</div>
+      <div id="sidebar-projects"></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar">TD</div>
+        <div><div class="avatar-name">Tyler</div><div class="avatar-role">Project Lead</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h2>Project Board</h2>
+      <div class="topbar-actions">
+        <button class="undo-btn" id="undo-btn" onclick="undo()" disabled title="Undo (Ctrl+Z)">
+          <span class="undo-icon">↩</span>
+          <span class="undo-label" id="undo-label">Undo</span>
+          <span class="undo-badge" id="undo-badge" style="display:none">0</span>
+        </button>
+        <input class="search" placeholder="Search projects..." id="search-input" />
+        <button class="btn btn-primary" onclick="openCreateModal()">+ New Project</button>
+      </div>
+    </div>
+    <div class="summary" id="summary-strip"></div>
+    <div class="board" id="board"></div>
+  </div>
+</div>
+
+<!-- Create / Edit Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">New Project</h3>
+      <div class="modal-close" onclick="closeModal()">&times;</div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id" />
+      <div class="form-group">
+        <label class="form-label">Project Name</label>
+        <input class="form-input" id="form-name" placeholder="e.g. Website Redesign" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="form-desc" placeholder="Brief project description..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="form-status">
+            <option value="planning">Planning</option>
+            <option value="in_progress">In Progress</option>
+            <option value="review">In Review</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-select" id="form-priority">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Components</label>
+        <div class="comp-editor" id="form-components"></div>
+        <div class="comp-add-row">
+          <input class="comp-add-input" id="comp-new-input" placeholder="Add a component..." />
+          <button class="comp-add-btn" onclick="addFormComponent()">Add</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note</label>
+        <textarea class="form-textarea" id="form-note" placeholder="Latest note or update..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProject()">Save Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal" style="width:400px">
+    <div class="confirm-body">
+      <p>Are you sure you want to delete<br><span class="project-name" id="confirm-name"></span>?</p>
+      <div class="confirm-actions">
+        <button class="btn" onclick="closeConfirm()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Data ──
+const COLUMNS = [
+  { key: 'planning', title: 'Planning', color: 'var(--blue)' },
+  { key: 'in_progress', title: 'In Progress', color: 'var(--yellow)' },
+  { key: 'review', title: 'In Review', color: 'var(--accent)' },
+  { key: 'complete', title: 'Complete', color: 'var(--green)' },
+];
+
+let projects = [
+  {
+    id: '1', name: 'Website Redesign', status: 'in_progress', priority: 'medium',
+    description: 'Marketing site overhaul with new brand identity and improved conversion flows.',
+    components: [
+      { name: 'Wireframes', status: 'done' },
+      { name: 'Design System', status: 'done' },
+      { name: 'Frontend Dev', status: 'wip' },
+      { name: 'CMS Integration', status: 'todo' },
+      { name: 'QA & Launch', status: 'todo' },
+    ],
+    note: 'Homepage hero section approved. Starting product pages next week.',
+    updatedAt: new Date(Date.now() - 2 * 86400000),
+  },
+  {
+    id: '2', name: 'Mobile App MVP', status: 'in_progress', priority: 'high',
+    description: 'Cross-platform app for customer self-service and order tracking.',
+    components: [
+      { name: 'User Research', status: 'done' },
+      { name: 'Prototype', status: 'done' },
+      { name: 'Auth System', status: 'wip' },
+      { name: 'API Layer', status: 'wip' },
+      { name: 'Push Notifs', status: 'todo' },
+      { name: 'Beta Testing', status: 'todo' },
+    ],
+    note: 'Auth flow blocked on SSO provider decision. Meeting scheduled for Thursday.',
+    updatedAt: new Date(),
+  },
+  {
+    id: '3', name: 'Data Pipeline Upgrade', status: 'review', priority: 'medium',
+    description: 'Migrate legacy ETL to modern streaming architecture with real-time analytics.',
+    components: [
+      { name: 'Architecture', status: 'done' },
+      { name: 'Ingestion Layer', status: 'done' },
+      { name: 'Transform Engine', status: 'done' },
+      { name: 'Dashboard', status: 'done' },
+      { name: 'Load Testing', status: 'wip' },
+    ],
+    note: 'Performance benchmarks look good. Final review with stakeholders on Monday.',
+    updatedAt: new Date(Date.now() - 86400000),
+  },
+  {
+    id: '4', name: 'Brand Guidelines V2', status: 'planning', priority: 'low',
+    description: 'Updated brand guidelines with new visual identity and voice standards.',
+    components: [
+      { name: 'Audit Current', status: 'wip' },
+      { name: 'Typography', status: 'todo' },
+      { name: 'Color System', status: 'todo' },
+      { name: 'Illustration', status: 'todo' },
+      { name: 'Voice & Tone', status: 'todo' },
+    ],
+    note: 'Kickoff complete. Gathering competitor examples and mood boards.',
+    updatedAt: new Date(Date.now() - 4 * 86400000),
+  },
+];
+
+let nextId = 5;
+let deleteTargetId = null;
+let formComponents = [];
+let searchQuery = '';
+
+// ── Undo System ──
+const undoStack = []; // Each entry: { label, snapshot, nextIdSnap }
+const MAX_UNDO = 30;
+
+function deepCloneProjects() {
+  return projects.map(p => ({
+    ...p,
+    components: p.components.map(c => ({ ...c })),
+    updatedAt: new Date(p.updatedAt.getTime()),
+  }));
+}
+
+function pushUndo(label) {
+  undoStack.push({ label, snapshot: deepCloneProjects(), nextIdSnap: nextId });
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  updateUndoButton();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  const entry = undoStack.pop();
+  projects = entry.snapshot;
+  nextId = entry.nextIdSnap;
+  render();
+  updateUndoButton();
+  showToast(`Undid: ${entry.label}`);
+}
+
+function updateUndoButton() {
+  const btn = document.getElementById('undo-btn');
+  const label = document.getElementById('undo-label');
+  const badge = document.getElementById('undo-badge');
+  if (undoStack.length === 0) {
+    btn.disabled = true;
+    label.textContent = 'Undo';
+    badge.style.display = 'none';
+  } else {
+    btn.disabled = false;
+    const last = undoStack[undoStack.length - 1];
+    label.textContent = last.label;
+    badge.textContent = undoStack.length;
+    badge.style.display = 'inline';
+  }
+}
+
+// ── Utility ──
+function getProgress(p) {
+  if (!p.components.length) return 0;
+  const done = p.components.filter(c => c.status === 'done').length;
+  const wip = p.components.filter(c => c.status === 'wip').length;
+  return Math.round(((done + wip * 0.5) / p.components.length) * 100);
+}
+
+function progressColor(pct) {
+  if (pct >= 70) return 'green';
+  if (pct >= 40) return 'yellow';
+  if (pct >= 15) return 'blue';
+  return 'orange';
+}
+
+function timeAgo(date) {
+  const diff = Date.now() - date.getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return 'Updated today';
+  if (days === 1) return 'Updated 1 day ago';
+  return `Updated ${days} days ago`;
+}
+
+function priorityClass(p) {
+  return p === 'high' ? 'priority-high' : p === 'medium' ? 'priority-med' : 'priority-low';
+}
+
+function priorityLabel(p) {
+  return p.charAt(0).toUpperCase() + p.slice(1);
+}
+
+function chipPrefix(status) {
+  if (status === 'done') return '✓ ';
+  if (status === 'wip') return '⟳ ';
+  return '';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Render ──
+function render() {
+  renderSummary();
+  renderBoard();
+  renderSidebar();
+}
+
+function renderSummary() {
+  const total = projects.length;
+  const onTrack = projects.filter(p => getProgress(p) >= 40 || p.status === 'complete').length;
+  const attention = total - onTrack;
+  const avg = total ? Math.round(projects.reduce((s, p) => s + getProgress(p), 0) / total) : 0;
+  document.getElementById('summary-strip').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Active Projects</div><div class="stat-value" style="color:var(--accent)">${total}</div></div>
+    <div class="stat-card"><div class="stat-label">On Track</div><div class="stat-value" style="color:var(--green)">${onTrack}</div></div>
+    <div class="stat-card"><div class="stat-label">Needs Attention</div><div class="stat-value" style="color:var(--yellow)">${attention}</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Progress</div><div class="stat-value">${avg}%</div></div>
+  `;
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  const q = searchQuery.toLowerCase();
+  board.innerHTML = COLUMNS.map(col => {
+    const colProjects = projects.filter(p => p.status === col.key && (!q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)));
+    return `
+      <div class="column">
+        <div class="col-header">
+          <div class="col-dot" style="background:${col.color}"></div>
+          <div class="col-title">${col.title}</div>
+          <div class="col-count">${colProjects.length}</div>
+        </div>
+        <div class="col-cards" data-status="${col.key}"
+             ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          ${colProjects.map(p => renderCard(p)).join('')}
+          ${col.key !== 'complete' ? `<div class="add-card" onclick="openCreateModal('${col.key}')">+ Add project</div>` : '<div class="col-empty">Projects move here when done</div>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderCard(p) {
+  const pct = getProgress(p);
+  const color = progressColor(pct);
+  return `
+    <div class="k-card" draggable="true" data-id="${p.id}"
+         ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">
+      <div class="k-top">
+        <div class="k-title">${esc(p.name)}</div>
+        <div class="k-priority ${priorityClass(p.priority)}">${priorityLabel(p.priority)}</div>
+      </div>
+      <div class="k-desc">${esc(p.description)}</div>
+      <div class="k-progress">
+        <div class="k-progress-header">
+          <span class="k-progress-label">Progress</span>
+          <span class="k-progress-pct" style="color:var(--${color})">${pct}%</span>
+        </div>
+        <div class="k-progress-bar"><div class="k-progress-fill fill-${color}" style="width:${pct}%"></div></div>
+      </div>
+      <div class="k-components">
+        ${p.components.map((c, i) => `<span class="comp-chip ${c.status === 'todo' ? '' : c.status}" onclick="cycleComponent('${p.id}',${i})" title="Click to cycle: todo → wip → done">${chipPrefix(c.status)}${esc(c.name)}</span>`).join('')}
+      </div>
+      <div class="k-note" id="note-${p.id}" onclick="editNoteInline('${p.id}')">
+        <div class="k-note-label">Latest Note</div>
+        <span class="note-text">${esc(p.note || 'Click to add a note...')}</span>
+      </div>
+      <div class="k-footer">
+        <div class="k-date">${timeAgo(p.updatedAt)}</div>
+        <div class="k-actions">
+          <div class="k-btn" onclick="openEditModal('${p.id}')" title="Edit">✏</div>
+          <div class="k-btn delete" onclick="openConfirm('${p.id}')" title="Delete">✕</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function renderSidebar() {
+  const el = document.getElementById('sidebar-projects');
+  el.innerHTML = projects.map(p => {
+    const pct = getProgress(p);
+    const color = progressColor(pct);
+    return `
+      <div class="nav-item">
+        <div class="nav-project-dot" style="background:var(--${color})"></div>
+        ${esc(p.name)}
+        <span class="nav-count">${pct}%</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Component cycling (click chip: todo → wip → done → todo) ──
+function cycleComponent(projectId, compIndex) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p) return;
+  const c = p.components[compIndex];
+  pushUndo(`Toggle "${c.name}"`);
+  const cycle = { todo: 'wip', wip: 'done', done: 'todo' };
+  c.status = cycle[c.status];
+  p.updatedAt = new Date();
+  render();
+  showToast(`${c.name}: ${c.status === 'done' ? 'Done ✓' : c.status === 'wip' ? 'In Progress' : 'To Do'}`);
+}
+
+// ── Inline note editing ──
+function editNoteInline(projectId) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p) return;
+  const noteEl = document.getElementById('note-' + projectId);
+  if (noteEl.querySelector('textarea')) return;
+  noteEl.innerHTML = `
+    <div class="k-note-label">Latest Note</div>
+    <textarea class="note-edit-area" onblur="saveNoteInline('${projectId}', this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur()}">${esc(p.note)}</textarea>
+  `;
+  const ta = noteEl.querySelector('textarea');
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+function saveNoteInline(projectId, textarea) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p) return;
+  pushUndo(`Edit note on "${p.name}"`);
+  p.note = textarea.value.trim();
+  p.updatedAt = new Date();
+  render();
+  showToast('Note updated');
+}
+
+// ── Drag & Drop ──
+let dragId = null;
+
+function handleDragStart(e) {
+  dragId = e.currentTarget.dataset.id;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.col-cards').forEach(c => c.classList.remove('drag-over'));
+  dragId = null;
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const newStatus = e.currentTarget.dataset.status;
+  const p = projects.find(x => x.id === dragId);
+  if (p && p.status !== newStatus) {
+    const colName = COLUMNS.find(c => c.key === newStatus)?.title;
+    pushUndo(`Move "${p.name}" to ${colName}`);
+    p.status = newStatus;
+    p.updatedAt = new Date();
+    render();
+    showToast(`Moved "${p.name}" to ${colName}`);
+  }
+}
+
+// ── Modal: Create ──
+function openCreateModal(defaultStatus) {
+  document.getElementById('modal-title').textContent = 'New Project';
+  document.getElementById('edit-id').value = '';
+  document.getElementById('form-name').value = '';
+  document.getElementById('form-desc').value = '';
+  document.getElementById('form-status').value = defaultStatus || 'planning';
+  document.getElementById('form-priority').value = 'medium';
+  document.getElementById('form-note').value = '';
+  formComponents = [];
+  renderFormComponents();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+// ── Modal: Edit ──
+function openEditModal(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('modal-title').textContent = 'Edit Project';
+  document.getElementById('edit-id').value = id;
+  document.getElementById('form-name').value = p.name;
+  document.getElementById('form-desc').value = p.description;
+  document.getElementById('form-status').value = p.status;
+  document.getElementById('form-priority').value = p.priority;
+  document.getElementById('form-note').value = p.note;
+  formComponents = p.components.map(c => ({ ...c }));
+  renderFormComponents();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function renderFormComponents() {
+  const el = document.getElementById('form-components');
+  el.innerHTML = formComponents.map((c, i) => `
+    <span class="comp-chip ${c.status === 'todo' ? '' : c.status}">
+      ${chipPrefix(c.status)}${esc(c.name)}
+      <span class="comp-remove" onclick="removeFormComponent(${i})">&times;</span>
+    </span>
+  `).join('');
+}
+
+function addFormComponent() {
+  const input = document.getElementById('comp-new-input');
+  const name = input.value.trim();
+  if (!name) return;
+  formComponents.push({ name, status: 'todo' });
+  input.value = '';
+  renderFormComponents();
+}
+
+function removeFormComponent(i) {
+  formComponents.splice(i, 1);
+  renderFormComponents();
+}
+
+// Handle enter in component input
+document.getElementById('comp-new-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); addFormComponent(); }
+});
+
+function saveProject() {
+  const id = document.getElementById('edit-id').value;
+  const name = document.getElementById('form-name').value.trim();
+  const desc = document.getElementById('form-desc').value.trim();
+  const status = document.getElementById('form-status').value;
+  const priority = document.getElementById('form-priority').value;
+  const note = document.getElementById('form-note').value.trim();
+
+  if (!name) { document.getElementById('form-name').focus(); return; }
+
+  pushUndo(id ? `Edit "${name}"` : `Create "${name}"`);
+
+  if (id) {
+    const p = projects.find(x => x.id === id);
+    if (p) {
+      p.name = name;
+      p.description = desc;
+      p.status = status;
+      p.priority = priority;
+      p.note = note;
+      p.components = [...formComponents];
+      p.updatedAt = new Date();
+      showToast(`"${name}" updated`);
+    }
+  } else {
+    projects.push({
+      id: String(nextId++),
+      name, description: desc, status, priority, note,
+      components: [...formComponents],
+      updatedAt: new Date(),
+    });
+    showToast(`"${name}" created`);
+  }
+
+  closeModal();
+  render();
+}
+
+// ── Delete ──
+function openConfirm(id) {
+  deleteTargetId = id;
+  const p = projects.find(x => x.id === id);
+  document.getElementById('confirm-name').textContent = p ? p.name : '';
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  deleteTargetId = null;
+}
+
+function confirmDelete() {
+  if (!deleteTargetId) return;
+  const p = projects.find(x => x.id === deleteTargetId);
+  pushUndo(`Delete "${p?.name}"`);
+  projects = projects.filter(x => x.id !== deleteTargetId);
+  closeConfirm();
+  render();
+  showToast(`"${p?.name}" deleted`);
+}
+
+// ── Search ──
+document.getElementById('search-input').addEventListener('input', e => {
+  searchQuery = e.target.value;
+  renderBoard();
+});
+
+// Close modals on overlay click
+document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+document.getElementById('confirm-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeConfirm(); });
+
+// Close modals on escape, Ctrl+Z for undo
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeConfirm(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input, textarea, select')) {
+    e.preventDefault();
+    undo();
+  }
+});
+
+// ── Initial render ──
+render();
+</script>
+</body>
+</html>

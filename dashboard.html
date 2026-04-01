@@ -72,14 +72,43 @@
   .stat-value { font-size: 24px; font-weight: 700; }
 
   /* Board */
-  .board { display: flex; gap: 20px; padding: 24px 28px; overflow-x: auto; flex: 1; align-items: flex-start; }
-  .column { min-width: 320px; max-width: 340px; flex-shrink: 0; }
-  .col-header { display: flex; align-items: center; gap: 8px; padding: 0 4px 14px; }
+  .board { display: flex; gap: 20px; padding: 24px 28px; overflow-x: auto; overflow-y: auto; flex: 1; align-items: stretch; }
+  .column { min-width: 320px; max-width: 340px; flex-shrink: 0; display: flex; flex-direction: column; }
+  .col-header { display: flex; align-items: center; gap: 8px; padding: 0 4px 14px; flex-shrink: 0; }
   .col-dot { width: 10px; height: 10px; border-radius: 50%; }
   .col-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); }
   .col-count { font-size: 11px; color: var(--text-dim); background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
-  .col-cards { display: flex; flex-direction: column; gap: 12px; min-height: 60px; padding: 4px; border-radius: 12px; transition: background 0.2s; }
+  .col-cards { display: flex; flex-direction: column; gap: 12px; min-height: 60px; padding: 4px; border-radius: 12px; transition: background 0.2s; flex: 1; }
   .col-cards.drag-over { background: var(--accent-glow); }
+
+  /* List View */
+  .list-view { flex: 1; overflow-y: auto; padding: 20px 28px; }
+  .list-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .list-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); padding: 10px 14px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 1; }
+  .list-table th.sortable { cursor: pointer; user-select: none; }
+  .list-table th.sortable:hover { color: var(--text); }
+  .list-table th .sort-arrow { margin-left: 4px; font-size: 9px; }
+  .list-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+  .list-table tr:hover td { background: var(--surface); }
+  .list-table tr { cursor: pointer; transition: background 0.1s; }
+  .list-row-name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .list-row-name .nav-project-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .list-status-badge { font-size: 11px; padding: 3px 10px; border-radius: 6px; font-weight: 500; white-space: nowrap; }
+  .list-status-badge.planning { background: var(--blue-bg); color: var(--blue); }
+  .list-status-badge.in_progress { background: var(--yellow-bg); color: var(--yellow); }
+  .list-status-badge.review { background: var(--accent-glow); color: var(--accent); }
+  .list-status-badge.complete { background: var(--green-bg); color: var(--green); }
+  .list-progress { display: flex; align-items: center; gap: 8px; }
+  .list-progress-bar { width: 80px; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .list-progress-fill { height: 100%; border-radius: 3px; }
+  .list-progress-pct { font-size: 12px; font-weight: 600; min-width: 32px; }
+  .list-components-summary { display: flex; gap: 4px; flex-wrap: wrap; }
+  .list-comp-mini { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); }
+  .list-comp-mini.done { border-color: var(--green); color: var(--green); }
+  .list-comp-mini.wip { border-color: var(--yellow); color: var(--yellow); }
+  .list-comp-mini.review { border-color: var(--accent); color: var(--accent); }
+  .list-folder { font-size: 11px; color: var(--text-dim); opacity: 0.7; }
+  .list-actions { display: flex; gap: 6px; }
 
   /* Kanban Card */
   .k-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); transition: border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.15s; cursor: grab; }
@@ -221,8 +250,8 @@
       <h1><span>Open</span>Claw</h1>
     </div>
     <div class="sidebar-nav">
-      <div class="nav-item active"><span class="nav-icon">▦</span> Board View</div>
-      <div class="nav-item"><span class="nav-icon">☰</span> List View</div>
+      <div class="nav-item active" data-view="board" onclick="switchView('board')"><span class="nav-icon">▦</span> Board View</div>
+      <div class="nav-item" data-view="list" onclick="switchView('list')"><span class="nav-icon">☰</span> List View</div>
       <div class="nav-item"><span class="nav-icon">◫</span> Timeline</div>
       <div class="nav-item"><span class="nav-icon">◉</span> Analytics</div>
       <div class="nav-label">Projects</div>
@@ -238,7 +267,7 @@
 
   <div class="main">
     <div class="topbar">
-      <h2>Project Board</h2>
+      <h2 id="view-title">Project Board</h2>
       <div class="topbar-actions">
         <button class="undo-btn" id="undo-btn" onclick="undo()" disabled title="Undo (Ctrl+Z)">
           <span class="undo-icon">↩</span>
@@ -251,6 +280,7 @@
     </div>
     <div class="summary" id="summary-strip"></div>
     <div class="board" id="board"></div>
+    <div class="list-view" id="list-view" style="display:none"></div>
   </div>
 </div>
 
@@ -531,10 +561,29 @@ function esc(str) {
   return d.innerHTML;
 }
 
+// ── View Switching ──
+let currentView = 'board';
+
+function switchView(view) {
+  currentView = view;
+  // Update nav active state
+  document.querySelectorAll('.nav-item[data-view]').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === view);
+  });
+  // Toggle containers
+  document.getElementById('board').style.display = view === 'board' ? 'flex' : 'none';
+  document.getElementById('list-view').style.display = view === 'list' ? 'block' : 'none';
+  // Update title
+  const titles = { board: 'Project Board', list: 'Project List' };
+  document.getElementById('view-title').textContent = titles[view] || 'Projects';
+  render();
+}
+
 // ── Render ──
 function render() {
   renderSummary();
   renderBoard();
+  renderListView();
   renderSidebar();
 }
 
@@ -623,6 +672,106 @@ function renderSidebar() {
       </div>
     `;
   }).join('');
+}
+
+// ── List View ──
+let listSortKey = 'name';
+let listSortAsc = true;
+
+function renderListView() {
+  if (currentView !== 'list') return;
+  const container = document.getElementById('list-view');
+  const q = searchQuery.toLowerCase();
+  let filtered = projects.filter(p => !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
+
+  // Sort
+  filtered.sort((a, b) => {
+    let va, vb;
+    switch (listSortKey) {
+      case 'name': va = a.name.toLowerCase(); vb = b.name.toLowerCase(); break;
+      case 'status':
+        const order = { planning: 0, in_progress: 1, review: 2, complete: 3 };
+        va = order[a.status] ?? 0; vb = order[b.status] ?? 0; break;
+      case 'priority':
+        const pOrder = { high: 0, medium: 1, low: 2 };
+        va = pOrder[a.priority] ?? 1; vb = pOrder[b.priority] ?? 1; break;
+      case 'progress': va = getProgress(a); vb = getProgress(b); break;
+      case 'updated': va = a.updatedAt.getTime(); vb = b.updatedAt.getTime(); break;
+      default: va = 0; vb = 0;
+    }
+    if (va < vb) return listSortAsc ? -1 : 1;
+    if (va > vb) return listSortAsc ? 1 : -1;
+    return 0;
+  });
+
+  const arrow = (key) => listSortKey === key ? `<span class="sort-arrow">${listSortAsc ? '▲' : '▼'}</span>` : '';
+  const statusLabels = { planning: 'Planning', in_progress: 'In Progress', review: 'In Review', complete: 'Complete' };
+
+  container.innerHTML = `
+    <table class="list-table">
+      <thead>
+        <tr>
+          <th class="sortable" onclick="listSort('name')">Project ${arrow('name')}</th>
+          <th class="sortable" onclick="listSort('status')">Status ${arrow('status')}</th>
+          <th class="sortable" onclick="listSort('priority')">Priority ${arrow('priority')}</th>
+          <th class="sortable" onclick="listSort('progress')">Progress ${arrow('progress')}</th>
+          <th>Components</th>
+          <th class="sortable" onclick="listSort('updated')">Updated ${arrow('updated')}</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map(p => {
+          const pct = getProgress(p);
+          const color = progressColor(pct);
+          const folderShort = p._folderPath ? p._folderPath.split('/').slice(-2).join('/') : '';
+          return `
+          <tr data-id="${p.id}">
+            <td>
+              <div class="list-row-name">
+                <div class="nav-project-dot" style="background:var(--${color})"></div>
+                <div>
+                  ${esc(p.name)}
+                  ${folderShort ? `<div class="list-folder">📁 ${esc(folderShort)}</div>` : ''}
+                </div>
+              </div>
+            </td>
+            <td><span class="list-status-badge ${p.status}">${statusLabels[p.status] || p.status}</span></td>
+            <td><span class="k-priority ${priorityClass(p.priority)}">${priorityLabel(p.priority)}</span></td>
+            <td>
+              <div class="list-progress">
+                <div class="list-progress-bar"><div class="list-progress-fill fill-${color}" style="width:${pct}%"></div></div>
+                <span class="list-progress-pct" style="color:var(--${color})">${pct}%</span>
+              </div>
+            </td>
+            <td>
+              <div class="list-components-summary">
+                ${p.components.map((c, i) => `<span class="list-comp-mini ${c.status === 'todo' ? '' : c.status}" onclick="event.stopPropagation(); cycleComponent('${p.id}',${i})" title="${esc(c.name)}: ${c.status} — click to cycle">${chipPrefix(c.status)}${esc(c.name)}</span>`).join('')}
+              </div>
+            </td>
+            <td style="font-size:12px;color:var(--text-dim)">${timeAgo(p.updatedAt)}</td>
+            <td>
+              <div class="list-actions">
+                <div class="k-btn" onclick="event.stopPropagation(); openEditModal('${p.id}')" title="Edit">✏</div>
+                <div class="k-btn delete" onclick="event.stopPropagation(); openConfirm('${p.id}')" title="Delete">✕</div>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    ${filtered.length === 0 ? '<div style="text-align:center;padding:40px;color:var(--text-dim)">No projects found</div>' : ''}
+  `;
+}
+
+function listSort(key) {
+  if (listSortKey === key) {
+    listSortAsc = !listSortAsc;
+  } else {
+    listSortKey = key;
+    listSortAsc = true;
+  }
+  renderListView();
 }
 
 // ── Component cycling ──

@@ -1,6 +1,8 @@
-# OpenClaw Dashboard
+# OpenClaw Dashboard (OCdash)
 
 A local project dashboard for tracking and managing ongoing projects orchestrated with OpenClaw. Built as a single-page web app backed by a lightweight Node.js server that uses `.openclaw.json` marker files for per-project persistence.
+
+> **Note:** This app will eventually be branded and released as **OCdash**.
 
 ## Quick Start
 

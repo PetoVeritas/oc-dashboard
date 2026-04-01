@@ -106,6 +106,7 @@
   .comp-chip { padding: 4px 10px; border-radius: 6px; font-size: 11px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); cursor: pointer; transition: all 0.15s; user-select: none; }
   .comp-chip:hover { border-color: var(--accent); }
   .comp-chip.done { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+  .comp-chip.review { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
   .comp-chip.wip { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-bg); }
   .k-note { background: var(--surface2); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--text-dim); line-height: 1.5; border-left: 3px solid var(--accent); margin-bottom: 16px; cursor: pointer; transition: border-color 0.15s; }
   .k-note:hover { border-left-color: #7c6ef0; }
@@ -381,12 +382,20 @@ async function api(method, path, body) {
 }
 
 // Normalize API project data to dashboard format
+const VALID_COMP_STATUSES = new Set(['todo', 'wip', 'review', 'done']);
+
+function normalizeCompStatus(s) {
+  return VALID_COMP_STATUSES.has(s) ? s : 'todo';
+}
+
 function normalizeProject(p) {
   return {
     ...p,
     // notes array → single note string for display (latest first)
     note: Array.isArray(p.notes) && p.notes.length > 0 ? p.notes[0].text : (p.note || ''),
     notes: Array.isArray(p.notes) ? p.notes : [],
+    // Normalize component statuses for backward compatibility
+    components: (p.components || []).map(c => ({ ...c, status: normalizeCompStatus(c.status) })),
     updatedAt: new Date(p.updatedAt || Date.now()),
     createdAt: p.createdAt || new Date().toISOString(),
   };
@@ -476,9 +485,9 @@ function updateUndoButton() {
 // ── Utility ──
 function getProgress(p) {
   if (!p.components.length) return 0;
-  const done = p.components.filter(c => c.status === 'done').length;
-  const wip = p.components.filter(c => c.status === 'wip').length;
-  return Math.round(((done + wip * 0.5) / p.components.length) * 100);
+  const weights = { done: 1, review: 0.75, wip: 0.5, todo: 0 };
+  const total = p.components.reduce((sum, c) => sum + (weights[c.status] ?? 0), 0);
+  return Math.round((total / p.components.length) * 100);
 }
 
 function progressColor(pct) {
@@ -504,6 +513,7 @@ function priorityLabel(p) {
 }
 function chipPrefix(status) {
   if (status === 'done') return '✓ ';
+  if (status === 'review') return '⊙ ';
   if (status === 'wip') return '⟳ ';
   return '';
 }
@@ -583,7 +593,7 @@ function renderCard(p) {
         <div class="k-progress-bar"><div class="k-progress-fill fill-${color}" style="width:${pct}%"></div></div>
       </div>
       <div class="k-components">
-        ${p.components.map((c, i) => `<span class="comp-chip ${c.status === 'todo' ? '' : c.status}" onclick="cycleComponent('${p.id}',${i})" title="Click to cycle: todo → wip → done">${chipPrefix(c.status)}${esc(c.name)}</span>`).join('')}
+        ${p.components.map((c, i) => `<span class="comp-chip ${c.status === 'todo' ? '' : c.status}" onclick="cycleComponent('${p.id}',${i})" title="Click to cycle: todo → wip → review → done">${chipPrefix(c.status)}${esc(c.name)}</span>`).join('')}
       </div>
       <div class="k-note" id="note-${p.id}" onclick="editNoteInline('${p.id}')">
         <div class="k-note-label">Latest Note</div>
@@ -621,12 +631,13 @@ function cycleComponent(projectId, compIndex) {
   if (!p) return;
   const c = p.components[compIndex];
   pushUndo(`Toggle "${c.name}"`);
-  const cycle = { todo: 'wip', wip: 'done', done: 'todo' };
-  c.status = cycle[c.status];
+  const cycle = { todo: 'wip', wip: 'review', review: 'done', done: 'todo' };
+  c.status = cycle[c.status] || 'todo';
   p.updatedAt = new Date();
   render();
   saveToServer(p);
-  showToast(`${c.name}: ${c.status === 'done' ? 'Done ✓' : c.status === 'wip' ? 'In Progress' : 'To Do'}`);
+  const statusLabels = { done: 'Done ✓', review: 'In Review', wip: 'In Progress', todo: 'To Do' };
+  showToast(`${c.name}: ${statusLabels[c.status] || 'To Do'}`);
 }
 
 // ── Inline note editing ──

@@ -1,0 +1,14 @@
+{
+  "name": "openclaw-dashboard",
+  "version": "1.0.0",
+  "description": "OpenClaw Project Dashboard — track and manage your projects",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["dashboard", "project-management", "openclaw"],
+  "author": "Tyler",
+  "license": "MIT",
+  "private": true
+}

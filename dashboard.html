@@ -226,6 +226,11 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="edit-id" />
+      <div class="form-group" id="form-folder-group">
+        <label class="form-label">Project Folder Path</label>
+        <input class="form-input" id="form-folder" placeholder="/Users/tyler/Documents/Claude/Projects/My New Project" />
+        <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Full path to the project folder. A .openclaw.json marker will be created here.</div>
+      </div>
       <div class="form-group">
         <label class="form-label">Project Name</label>
         <input class="form-input" id="form-name" placeholder="e.g. Website Redesign" />
@@ -290,7 +295,8 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Data ──
+// ── Config ──
+const API = 'http://localhost:3001/api';
 const COLUMNS = [
   { key: 'planning', title: 'Planning', color: 'var(--blue)' },
   { key: 'in_progress', title: 'In Progress', color: 'var(--yellow)' },
@@ -298,81 +304,74 @@ const COLUMNS = [
   { key: 'complete', title: 'Complete', color: 'var(--green)' },
 ];
 
-let projects = [
-  {
-    id: '1', name: 'Website Redesign', status: 'in_progress', priority: 'medium',
-    description: 'Marketing site overhaul with new brand identity and improved conversion flows.',
-    components: [
-      { name: 'Wireframes', status: 'done' },
-      { name: 'Design System', status: 'done' },
-      { name: 'Frontend Dev', status: 'wip' },
-      { name: 'CMS Integration', status: 'todo' },
-      { name: 'QA & Launch', status: 'todo' },
-    ],
-    note: 'Homepage hero section approved. Starting product pages next week.',
-    updatedAt: new Date(Date.now() - 2 * 86400000),
-  },
-  {
-    id: '2', name: 'Mobile App MVP', status: 'in_progress', priority: 'high',
-    description: 'Cross-platform app for customer self-service and order tracking.',
-    components: [
-      { name: 'User Research', status: 'done' },
-      { name: 'Prototype', status: 'done' },
-      { name: 'Auth System', status: 'wip' },
-      { name: 'API Layer', status: 'wip' },
-      { name: 'Push Notifs', status: 'todo' },
-      { name: 'Beta Testing', status: 'todo' },
-    ],
-    note: 'Auth flow blocked on SSO provider decision. Meeting scheduled for Thursday.',
-    updatedAt: new Date(),
-  },
-  {
-    id: '3', name: 'Data Pipeline Upgrade', status: 'review', priority: 'medium',
-    description: 'Migrate legacy ETL to modern streaming architecture with real-time analytics.',
-    components: [
-      { name: 'Architecture', status: 'done' },
-      { name: 'Ingestion Layer', status: 'done' },
-      { name: 'Transform Engine', status: 'done' },
-      { name: 'Dashboard', status: 'done' },
-      { name: 'Load Testing', status: 'wip' },
-    ],
-    note: 'Performance benchmarks look good. Final review with stakeholders on Monday.',
-    updatedAt: new Date(Date.now() - 86400000),
-  },
-  {
-    id: '4', name: 'Brand Guidelines V2', status: 'planning', priority: 'low',
-    description: 'Updated brand guidelines with new visual identity and voice standards.',
-    components: [
-      { name: 'Audit Current', status: 'wip' },
-      { name: 'Typography', status: 'todo' },
-      { name: 'Color System', status: 'todo' },
-      { name: 'Illustration', status: 'todo' },
-      { name: 'Voice & Tone', status: 'todo' },
-    ],
-    note: 'Kickoff complete. Gathering competitor examples and mood boards.',
-    updatedAt: new Date(Date.now() - 4 * 86400000),
-  },
-];
-
-let nextId = 5;
+let projects = [];
+let serverConnected = false;
 let deleteTargetId = null;
 let formComponents = [];
 let searchQuery = '';
 
+// ── API Layer ──
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'API error');
+  }
+  return res.json();
+}
+
+// Normalize API project data to dashboard format
+function normalizeProject(p) {
+  return {
+    ...p,
+    // notes array → single note string for display (latest first)
+    note: Array.isArray(p.notes) && p.notes.length > 0 ? p.notes[0].text : (p.note || ''),
+    notes: Array.isArray(p.notes) ? p.notes : [],
+    updatedAt: new Date(p.updatedAt || Date.now()),
+    createdAt: p.createdAt || new Date().toISOString(),
+  };
+}
+
+// Convert dashboard project back to API format for saving
+function toApiFormat(p) {
+  return {
+    name: p.name,
+    description: p.description,
+    status: p.status,
+    priority: p.priority,
+    color: p.color || null,
+    components: p.components,
+    notes: p.notes || [],
+  };
+}
+
+// Save a single project to the server (fire-and-forget with error toast)
+function saveToServer(project) {
+  if (!serverConnected) return;
+  api('PUT', `/projects/${project.id}`, toApiFormat(project))
+    .catch(e => console.error('Save failed:', e.message));
+}
+
 // ── Undo System ──
-const undoStack = []; // Each entry: { label, snapshot, nextIdSnap }
+const undoStack = [];
 const MAX_UNDO = 30;
 
 function deepCloneProjects() {
   return projects.map(p => ({
     ...p,
     components: p.components.map(c => ({ ...c })),
+    notes: p.notes.map(n => ({ ...n })),
     updatedAt: new Date(p.updatedAt.getTime()),
   }));
 }
 
 function pushUndo(label) {
-  undoStack.push({ label, snapshot: deepCloneProjects(), nextIdSnap: nextId });
+  undoStack.push({ label, snapshot: deepCloneProjects() });
   if (undoStack.length > MAX_UNDO) undoStack.shift();
   updateUndoButton();
 }
@@ -380,8 +379,23 @@ function pushUndo(label) {
 function undo() {
   if (!undoStack.length) return;
   const entry = undoStack.pop();
+  // Find which projects changed and save them back
+  const oldIds = new Set(projects.map(p => p.id));
+  const newIds = new Set(entry.snapshot.map(p => p.id));
   projects = entry.snapshot;
-  nextId = entry.nextIdSnap;
+  // Sync all restored projects to server
+  projects.forEach(p => saveToServer(p));
+  // If a project was deleted (exists in snapshot but not current), it was restored — but we can't un-delete a marker file via PUT.
+  // For delete undo, we'd need to re-create. Handle this specially:
+  for (const p of projects) {
+    if (!oldIds.has(p.id)) {
+      // This project was deleted and now needs to be re-created
+      if (serverConnected && p._folderPath) {
+        api('POST', '/projects', { folderPath: p._folderPath, ...toApiFormat(p) })
+          .catch(e => console.error('Undo re-create failed:', e.message));
+      }
+    }
+  }
   render();
   updateUndoButton();
   showToast(`Undid: ${entry.label}`);
@@ -430,11 +444,9 @@ function timeAgo(date) {
 function priorityClass(p) {
   return p === 'high' ? 'priority-high' : p === 'medium' ? 'priority-med' : 'priority-low';
 }
-
 function priorityLabel(p) {
   return p.charAt(0).toUpperCase() + p.slice(1);
 }
-
 function chipPrefix(status) {
   if (status === 'done') return '✓ ';
   if (status === 'wip') return '⟳ ';
@@ -446,6 +458,12 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
 }
 
 // ── Render ──
@@ -493,11 +511,12 @@ function renderBoard() {
 function renderCard(p) {
   const pct = getProgress(p);
   const color = progressColor(pct);
+  const folderDisplay = p._folderPath ? `<div style="font-size:10px;color:var(--text-dim);margin-top:2px;opacity:0.6" title="${esc(p._folderPath)}">📁 ${esc(p._folderPath.split('/').slice(-2).join('/'))}</div>` : '';
   return `
     <div class="k-card" draggable="true" data-id="${p.id}"
          ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">
       <div class="k-top">
-        <div class="k-title">${esc(p.name)}</div>
+        <div class="k-title">${esc(p.name)}${folderDisplay}</div>
         <div class="k-priority ${priorityClass(p.priority)}">${priorityLabel(p.priority)}</div>
       </div>
       <div class="k-desc">${esc(p.description)}</div>
@@ -526,12 +545,6 @@ function renderCard(p) {
   `;
 }
 
-function esc(str) {
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
-}
-
 function renderSidebar() {
   const el = document.getElementById('sidebar-projects');
   el.innerHTML = projects.map(p => {
@@ -547,7 +560,7 @@ function renderSidebar() {
   }).join('');
 }
 
-// ── Component cycling (click chip: todo → wip → done → todo) ──
+// ── Component cycling ──
 function cycleComponent(projectId, compIndex) {
   const p = projects.find(x => x.id === projectId);
   if (!p) return;
@@ -557,6 +570,7 @@ function cycleComponent(projectId, compIndex) {
   c.status = cycle[c.status];
   p.updatedAt = new Date();
   render();
+  saveToServer(p);
   showToast(`${c.name}: ${c.status === 'done' ? 'Done ✓' : c.status === 'wip' ? 'In Progress' : 'To Do'}`);
 }
 
@@ -579,9 +593,13 @@ function saveNoteInline(projectId, textarea) {
   const p = projects.find(x => x.id === projectId);
   if (!p) return;
   pushUndo(`Edit note on "${p.name}"`);
-  p.note = textarea.value.trim();
+  const newText = textarea.value.trim();
+  p.note = newText;
+  // Update notes array: add new entry at the front
+  p.notes = [{ text: newText, date: new Date().toISOString() }, ...p.notes.slice(0, 49)];
   p.updatedAt = new Date();
   render();
+  saveToServer(p);
   showToast('Note updated');
 }
 
@@ -593,23 +611,19 @@ function handleDragStart(e) {
   e.currentTarget.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
 }
-
 function handleDragEnd(e) {
   e.currentTarget.classList.remove('dragging');
   document.querySelectorAll('.col-cards').forEach(c => c.classList.remove('drag-over'));
   dragId = null;
 }
-
 function handleDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   e.currentTarget.classList.add('drag-over');
 }
-
 function handleDragLeave(e) {
   e.currentTarget.classList.remove('drag-over');
 }
-
 function handleDrop(e) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
@@ -621,6 +635,7 @@ function handleDrop(e) {
     p.status = newStatus;
     p.updatedAt = new Date();
     render();
+    saveToServer(p);
     showToast(`Moved "${p.name}" to ${colName}`);
   }
 }
@@ -629,6 +644,8 @@ function handleDrop(e) {
 function openCreateModal(defaultStatus) {
   document.getElementById('modal-title').textContent = 'New Project';
   document.getElementById('edit-id').value = '';
+  document.getElementById('form-folder-group').style.display = 'block';
+  document.getElementById('form-folder').value = '';
   document.getElementById('form-name').value = '';
   document.getElementById('form-desc').value = '';
   document.getElementById('form-status').value = defaultStatus || 'planning';
@@ -645,6 +662,7 @@ function openEditModal(id) {
   if (!p) return;
   document.getElementById('modal-title').textContent = 'Edit Project';
   document.getElementById('edit-id').value = id;
+  document.getElementById('form-folder-group').style.display = 'none'; // can't change folder on edit
   document.getElementById('form-name').value = p.name;
   document.getElementById('form-desc').value = p.description;
   document.getElementById('form-status').value = p.status;
@@ -683,43 +701,81 @@ function removeFormComponent(i) {
   renderFormComponents();
 }
 
-// Handle enter in component input
 document.getElementById('comp-new-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); addFormComponent(); }
 });
 
-function saveProject() {
+async function saveProject() {
   const id = document.getElementById('edit-id').value;
   const name = document.getElementById('form-name').value.trim();
   const desc = document.getElementById('form-desc').value.trim();
   const status = document.getElementById('form-status').value;
   const priority = document.getElementById('form-priority').value;
-  const note = document.getElementById('form-note').value.trim();
+  const noteText = document.getElementById('form-note').value.trim();
 
   if (!name) { document.getElementById('form-name').focus(); return; }
 
   pushUndo(id ? `Edit "${name}"` : `Create "${name}"`);
 
   if (id) {
+    // Update existing project
     const p = projects.find(x => x.id === id);
     if (p) {
       p.name = name;
       p.description = desc;
       p.status = status;
       p.priority = priority;
-      p.note = note;
+      // If note changed, add to notes history
+      if (noteText !== p.note) {
+        p.notes = [{ text: noteText, date: new Date().toISOString() }, ...p.notes.slice(0, 49)];
+      }
+      p.note = noteText;
       p.components = [...formComponents];
       p.updatedAt = new Date();
+      saveToServer(p);
       showToast(`"${name}" updated`);
     }
   } else {
-    projects.push({
-      id: String(nextId++),
-      name, description: desc, status, priority, note,
-      components: [...formComponents],
-      updatedAt: new Date(),
-    });
-    showToast(`"${name}" created`);
+    // Create new project via API
+    const folderPath = document.getElementById('form-folder').value.trim();
+    if (!folderPath && serverConnected) {
+      document.getElementById('form-folder').focus();
+      showToast('Please enter a folder path');
+      undoStack.pop(); // Remove the undo entry we just pushed
+      updateUndoButton();
+      return;
+    }
+
+    const notes = noteText ? [{ text: noteText, date: new Date().toISOString() }] : [];
+
+    if (serverConnected) {
+      try {
+        const created = await api('POST', '/projects', {
+          folderPath,
+          name, description: desc, status, priority,
+          components: [...formComponents],
+          notes,
+        });
+        projects.push(normalizeProject(created));
+        showToast(`"${name}" created`);
+      } catch (e) {
+        showToast(`Error: ${e.message}`);
+        undoStack.pop();
+        updateUndoButton();
+        return;
+      }
+    } else {
+      // Offline fallback
+      projects.push({
+        id: 'local_' + Date.now(),
+        name, description: desc, status, priority,
+        note: noteText, notes,
+        components: [...formComponents],
+        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+      });
+      showToast(`"${name}" created (offline)`);
+    }
   }
 
   closeModal();
@@ -739,10 +795,19 @@ function closeConfirm() {
   deleteTargetId = null;
 }
 
-function confirmDelete() {
+async function confirmDelete() {
   if (!deleteTargetId) return;
   const p = projects.find(x => x.id === deleteTargetId);
   pushUndo(`Delete "${p?.name}"`);
+
+  if (serverConnected) {
+    try {
+      await api('DELETE', `/projects/${deleteTargetId}`);
+    } catch (e) {
+      console.error('Delete failed:', e.message);
+    }
+  }
+
   projects = projects.filter(x => x.id !== deleteTargetId);
   closeConfirm();
   render();
@@ -759,7 +824,7 @@ document.getElementById('search-input').addEventListener('input', e => {
 document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 document.getElementById('confirm-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeConfirm(); });
 
-// Close modals on escape, Ctrl+Z for undo
+// Close modals on escape, Ctrl+Z / Cmd+Z for undo
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeModal(); closeConfirm(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input, textarea, select')) {
@@ -768,8 +833,23 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ── Initial render ──
-render();
+// ── Initialization ──
+async function init() {
+  try {
+    const data = await api('GET', '/projects');
+    projects = data.map(normalizeProject);
+    serverConnected = true;
+    render();
+    console.log(`🦞 OpenClaw: Loaded ${projects.length} projects from server`);
+  } catch (e) {
+    serverConnected = false;
+    console.warn('🦞 OpenClaw: Server not available, running in offline mode');
+    showToast('Server not connected — running offline. Start server.js to enable persistence.');
+    render();
+  }
+}
+
+init();
 </script>
 </body>
 </html>

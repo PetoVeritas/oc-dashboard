@@ -67,7 +67,11 @@ My Project Dashboard/
 ├── dashboard.html         # Single-page dashboard UI
 ├── package.json           # npm metadata
 ├── start.sh               # Quick-launch script
-├── openclaw.config.json   # Local config (git-ignored)
+├── local/
+│   └── openclaw.config.json  # Local config (git-ignored)
+├── scripts/
+│   └── oc-control/
+│       └── restart-oc-15s.sh  # Approved OC Control script
 ├── .gitignore
 └── README.md
 ```
@@ -126,6 +130,9 @@ Each tracked project folder contains a `.openclaw.json`:
 | POST | `/api/upgrade-items` | Create upgrade item |
 | PUT | `/api/upgrade-items/:id` | Update upgrade item |
 | DELETE | `/api/upgrade-items/:id` | Remove upgrade item |
+| GET | `/api/oc-control/status` | OC Control status + Ollama health check |
+| POST | `/api/oc-control/plan` | Bounded action planning via Ollama |
+| POST | `/api/oc-control/run` | Execute an approved control script |
 
 ## Configuration
 
@@ -140,6 +147,96 @@ Each tracked project folder contains a `.openclaw.json`:
 
 - **projectRoots** — directories the server scans for folders containing `.openclaw.json`
 - **pinnedDirs** — bookmarked directories shown at the top of the folder browser
+
+## OC Control — Bounded Decision Engine
+
+OC Control lets OCDash use a local Ollama-hosted model (e.g. Gemma) as a **planner/selector** for OpenClaw operational actions. The model never gets shell access — it only picks from a strict allowlist, and OCDash maps the chosen action to an approved local script.
+
+### Architecture
+
+```
+  User intent
+      │
+      ▼
+  OCDash server ──POST──▶ Ollama (Gemma)
+      │                        │
+      │◀── JSON: { action } ───┘
+      │
+      ▼
+  Validate action ∈ allowlist
+      │
+      ▼
+  Execute mapped script  (scripts/oc-control/*.sh)
+      │
+      ▼
+  Return stdout/stderr/exit code to UI
+```
+
+The model is **decision-only**: it returns a bounded action key, never a raw shell command. OCDash is the **orchestrator/policy layer** that validates and executes.
+
+### Where scripts live
+
+All approved control scripts are in `scripts/oc-control/`. Currently:
+
+| Script | Action Key | What it does |
+|--------|------------|--------------|
+| `restart-oc-15s.sh` | `restart_oc_15s` | Stops the OC gateway, waits 15s, restarts it |
+
+Scripts run via `/bin/bash` and must be `chmod +x`. They are never generated or modified by the LLM.
+
+### Configuration
+
+Add these sections to `local/openclaw.config.json`:
+
+```json
+{
+  "llm": {
+    "provider": "ollama",
+    "baseUrl": "http://localhost:11434",
+    "model": "gemma3",
+    "timeoutMs": 30000
+  },
+  "ocControl": {
+    "enabled": true,
+    "scriptsDir": "/absolute/path/to/scripts/oc-control",
+    "allowedActions": {
+      "restart_oc_15s": {
+        "label": "Restart OpenClaw gateway (15s delay)",
+        "script": "restart-oc-15s.sh",
+        "description": "Stop the OpenClaw gateway, wait 15 seconds, then restart it."
+      },
+      "no_action": {
+        "label": "No action required",
+        "script": null,
+        "description": "The model determined no action is needed."
+      }
+    }
+  }
+}
+```
+
+`ocControl.enabled` defaults to `false` — you must opt in. All other fields have sensible defaults.
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/oc-control/status` | Check config, Ollama reachability, allowed actions |
+| POST | `/api/oc-control/plan` | Send `{ userIntent }`, get back the model's chosen action |
+| POST | `/api/oc-control/run` | Send `{ action }`, execute the mapped script |
+
+### Why Gemma is decision-only
+
+Giving an LLM unrestricted shell access is a security and reliability risk. Instead, Gemma operates within a strict boundary: it receives a natural-language intent, selects from a tiny allowlist of pre-approved actions, and returns structured JSON. OCDash validates the response and maps it to a known script. If the model hallucinates an action that isn't in the allowlist, the request is rejected. This keeps the blast radius small and the control flow auditable.
+
+### Using the UI
+
+Navigate to **OC Control** in the sidebar. The panel has three steps: describe your intent, review the model's chosen action, then confirm execution. Nothing runs until you explicitly click "Confirm & Execute."
+
+### Prerequisites
+
+- [Ollama](https://ollama.com) running locally with a Gemma model pulled (`ollama pull gemma3`)
+- `ocControl.enabled` set to `true` in config
 
 ## Roadmap
 

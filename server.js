@@ -1,7 +1,9 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { randomBytes } = require('crypto');
+const { execFile } = require('child_process');
 
 // ── Config ──
 const PORT = 3001;
@@ -15,6 +17,36 @@ if (!fs.existsSync(LOCAL_DIR)) fs.mkdirSync(LOCAL_DIR);
 let CONFIG_FILE = path.join(LOCAL_DIR, 'openclaw.config.json');
 let config = { projectRoots: [] };
 
+// Default config values for LLM + OC Control
+const LLM_DEFAULTS = {
+  provider: 'ollama',
+  baseUrl: 'http://localhost:11434',
+  model: 'gemma3',
+  timeoutMs: 90000,
+};
+
+const OC_CONTROL_DEFAULTS = {
+  enabled: false,
+  scriptsDir: path.join(__dirname, 'scripts', 'oc-control'),
+  allowedActions: {
+    restart_oc_5s: {
+      label: 'Restart OpenClaw gateway (5s delay)',
+      script: 'restart-oc-5s.sh',
+      description: 'Stop the OpenClaw gateway, wait 5 seconds, then restart it.',
+    },
+    stop_oc_gateway: {
+      label: 'Stop OpenClaw gateway',
+      script: 'stop-oc-gateway.sh',
+      description: 'Stop the OpenClaw gateway and leave it stopped.',
+    },
+    no_action: {
+      label: 'No action required',
+      script: null,
+      description: 'The model determined no action is needed.',
+    },
+  },
+};
+
 function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
@@ -24,6 +56,14 @@ function loadConfig() {
       config = { projectRoots: [path.dirname(__dirname)] };
       fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
     }
+    // Ensure LLM and ocControl sections have defaults
+    config.llm = { ...LLM_DEFAULTS, ...(config.llm || {}) };
+    config.ocControl = { ...OC_CONTROL_DEFAULTS, ...(config.ocControl || {}) };
+    // Merge any missing allowedActions
+    config.ocControl.allowedActions = {
+      ...OC_CONTROL_DEFAULTS.allowedActions,
+      ...(config.ocControl.allowedActions || {}),
+    };
   } catch (e) {
     console.error('Error loading config:', e.message);
   }
@@ -415,6 +455,227 @@ function handleDeleteUpgradeItem(req, res, id) {
   sendJSON(res, 200, { message: 'Item removed', id });
 }
 
+// ── OC Control: Ollama Integration ──
+
+// Make a request to the local Ollama API
+function ollamaGenerate(prompt) {
+  return new Promise((resolve, reject) => {
+    const { baseUrl, model, timeoutMs } = config.llm;
+    const urlObj = new URL('/api/generate', baseUrl);
+    const transport = urlObj.protocol === 'https:' ? https : http;
+
+    const payload = JSON.stringify({
+      model,
+      prompt,
+      stream: false,
+      format: 'json',
+      options: { temperature: 0.1 },
+    });
+
+    const reqOpts = {
+      hostname: urlObj.hostname,
+      port: urlObj.port,
+      path: urlObj.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+      timeout: timeoutMs,
+    };
+
+    const request = transport.request(reqOpts, (resp) => {
+      let body = '';
+      resp.on('data', chunk => body += chunk);
+      resp.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          resolve(data);
+        } catch (e) {
+          reject(new Error('Invalid JSON response from Ollama: ' + body.slice(0, 200)));
+        }
+      });
+    });
+
+    request.on('timeout', () => {
+      request.destroy();
+      reject(new Error(`Ollama request timed out after ${timeoutMs}ms`));
+    });
+
+    request.on('error', (e) => {
+      reject(new Error('Ollama connection failed: ' + e.message));
+    });
+
+    request.write(payload);
+    request.end();
+  });
+}
+
+// POST /api/oc-control/plan — Ask Gemma to choose a bounded action
+async function handleOcControlPlan(req, res) {
+  if (!config.ocControl.enabled) {
+    return sendJSON(res, 403, { error: 'OC Control is disabled. Set ocControl.enabled = true in config.' });
+  }
+
+  const { userIntent } = await readBody(req);
+  if (!userIntent || !userIntent.trim()) {
+    return sendJSON(res, 400, { error: 'userIntent is required' });
+  }
+
+  const actionKeys = Object.keys(config.ocControl.allowedActions);
+  const actionDescriptions = actionKeys.map(key => {
+    const a = config.ocControl.allowedActions[key];
+    return `  - "${key}": ${a.description}`;
+  }).join('\n');
+
+  const systemPrompt = `You are a bounded action selector for the OpenClaw control system.
+Your ONLY job is to select exactly one action from the allowed list below based on the user's intent.
+You MUST respond with valid JSON only. No markdown, no explanation, no extra text.
+
+Allowed actions:
+${actionDescriptions}
+
+Respond with this exact JSON schema:
+{"action": "<action_key>", "reason": "<one sentence reason>"}
+
+If the user's intent does not clearly match any destructive/operational action, choose "no_action".
+Be conservative — only choose a real action if the intent is unmistakably clear.`;
+
+  const fullPrompt = `${systemPrompt}\n\nUser intent: "${userIntent.trim()}"`;
+
+  try {
+    const ollamaResp = await ollamaGenerate(fullPrompt);
+    const rawText = (ollamaResp.response || '').trim();
+
+    // Parse the JSON response from the model
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (e) {
+      // Try to extract JSON from the response
+      const jsonMatch = rawText.match(/\{[^}]+\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        return sendJSON(res, 502, {
+          error: 'Model did not return valid JSON',
+          raw: rawText,
+        });
+      }
+    }
+
+    // Validate that the chosen action is in the allowlist
+    const chosenAction = parsed.action;
+    if (!actionKeys.includes(chosenAction)) {
+      return sendJSON(res, 422, {
+        error: `Model chose invalid action: "${chosenAction}"`,
+        allowed: actionKeys,
+        raw: rawText,
+      });
+    }
+
+    sendJSON(res, 200, {
+      action: chosenAction,
+      reason: parsed.reason || '',
+      actionMeta: config.ocControl.allowedActions[chosenAction],
+      model: config.llm.model,
+    });
+  } catch (e) {
+    sendJSON(res, 502, { error: e.message });
+  }
+}
+
+// POST /api/oc-control/run — Execute an approved action script
+async function handleOcControlRun(req, res) {
+  if (!config.ocControl.enabled) {
+    return sendJSON(res, 403, { error: 'OC Control is disabled. Set ocControl.enabled = true in config.' });
+  }
+
+  const { action } = await readBody(req);
+  if (!action) {
+    return sendJSON(res, 400, { error: 'action is required' });
+  }
+
+  // Validate action is in the allowlist
+  const actionDef = config.ocControl.allowedActions[action];
+  if (!actionDef) {
+    return sendJSON(res, 403, {
+      error: `Action "${action}" is not in the allowlist`,
+      allowed: Object.keys(config.ocControl.allowedActions),
+    });
+  }
+
+  // no_action is a valid choice but has no script
+  if (!actionDef.script) {
+    return sendJSON(res, 200, {
+      action,
+      status: 'no_op',
+      message: 'No script to execute for this action.',
+      exitCode: 0,
+    });
+  }
+
+  // Resolve the script path and validate it lives inside scriptsDir
+  const scriptsDir = path.resolve(config.ocControl.scriptsDir);
+  const scriptPath = path.resolve(scriptsDir, actionDef.script);
+
+  if (!scriptPath.startsWith(scriptsDir + path.sep) && scriptPath !== scriptsDir) {
+    return sendJSON(res, 403, { error: 'Script path escapes scriptsDir — blocked.' });
+  }
+
+  if (!fs.existsSync(scriptPath)) {
+    return sendJSON(res, 404, {
+      error: `Script not found: ${actionDef.script}`,
+      expectedAt: scriptPath,
+    });
+  }
+
+  // Execute the script with a timeout
+  const scriptTimeout = config.llm.timeoutMs + 30000; // give extra time for the actual operation
+  execFile('/bin/bash', [scriptPath], { timeout: scriptTimeout }, (error, stdout, stderr) => {
+    const exitCode = error ? (error.code || 1) : 0;
+    sendJSON(res, exitCode === 0 ? 200 : 500, {
+      action,
+      status: exitCode === 0 ? 'success' : 'error',
+      exitCode,
+      stdout: stdout || '',
+      stderr: stderr || '',
+      script: actionDef.script,
+    });
+  });
+}
+
+// GET /api/oc-control/status — Check OC Control config and Ollama reachability
+async function handleOcControlStatus(req, res) {
+  const status = {
+    enabled: config.ocControl.enabled,
+    model: config.llm.model,
+    baseUrl: config.llm.baseUrl,
+    allowedActions: config.ocControl.allowedActions,
+    ollamaReachable: false,
+  };
+
+  // Quick health check against Ollama
+  try {
+    await new Promise((resolve, reject) => {
+      const urlObj = new URL('/api/tags', config.llm.baseUrl);
+      const transport = urlObj.protocol === 'https:' ? https : http;
+      const request = transport.get(urlObj, { timeout: 5000 }, (resp) => {
+        let body = '';
+        resp.on('data', chunk => body += chunk);
+        resp.on('end', () => {
+          status.ollamaReachable = resp.statusCode === 200;
+          resolve();
+        });
+      });
+      request.on('timeout', () => { request.destroy(); resolve(); });
+      request.on('error', () => resolve());
+    });
+  } catch (_) { /* leave false */ }
+
+  sendJSON(res, 200, status);
+}
+
 // ── Router ──
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -493,6 +754,17 @@ const server = http.createServer(async (req, res) => {
       return await handleAddRoot(req, res);
     }
 
+    // OC Control routes
+    if (pathname === '/api/oc-control/status' && req.method === 'GET') {
+      return await handleOcControlStatus(req, res);
+    }
+    if (pathname === '/api/oc-control/plan' && req.method === 'POST') {
+      return await handleOcControlPlan(req, res);
+    }
+    if (pathname === '/api/oc-control/run' && req.method === 'POST') {
+      return await handleOcControlRun(req, res);
+    }
+
     // 404
     sendJSON(res, 404, { error: 'Not found' });
   } catch (e) {
@@ -511,5 +783,7 @@ server.listen(PORT, () => {
   console.log(`  Config:     ${CONFIG_FILE}`);
   console.log(`  Scanning:   ${config.projectRoots.join(', ')}`);
   console.log(`  Projects:   ${discoverProjects().length} found`);
-  console.log(`  Reticulator: ${RETIC_FILE} (${loadReticulatorItems().length} items)\n`);
+  console.log(`  Reticulator: ${RETIC_FILE} (${loadReticulatorItems().length} items)`);
+  console.log(`  OC Control:  ${config.ocControl.enabled ? 'ENABLED' : 'disabled'} (${config.llm.model} @ ${config.llm.baseUrl})`);
+  console.log(`  Scripts:     ${config.ocControl.scriptsDir}\n`);
 });

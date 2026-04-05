@@ -316,6 +316,48 @@
   .undo-btn .undo-icon { font-size: 15px; }
   .undo-btn .undo-label { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .undo-badge { font-size: 10px; background: var(--accent); color: white; padding: 1px 6px; border-radius: 8px; font-weight: 600; }
+
+  /* OC Control */
+  .occ-view { flex: 1; overflow-y: auto; padding: 20px 28px; display: none; }
+  .occ-layout { display: flex; gap: 24px; }
+  .occ-main { flex: 3; min-width: 0; }
+  .occ-sidebar { flex: 1; min-width: 220px; max-width: 300px; }
+  .occ-actions-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: sticky; top: 0; }
+  .occ-actions-panel h4 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); margin-bottom: 14px; }
+  .occ-action-item { padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+  .occ-action-item:last-child { margin-bottom: 0; }
+  .occ-action-key { font-size: 13px; font-weight: 600; color: var(--accent); font-family: 'SF Mono', 'Fira Code', monospace; }
+  .occ-action-label { font-size: 12px; color: var(--text); margin-top: 3px; }
+  .occ-action-desc { font-size: 11px; color: var(--text-dim); margin-top: 3px; line-height: 1.4; }
+  .occ-action-script { font-size: 10px; color: var(--text-dim); margin-top: 4px; font-family: 'SF Mono', 'Fira Code', monospace; opacity: 0.7; }
+  .occ-header { margin-bottom: 24px; }
+  .occ-header h3 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .occ-header p { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .occ-status-bar { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .occ-status-chip { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
+  .occ-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .occ-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .occ-dot.off { background: var(--red); }
+  .occ-dot.unknown { background: var(--text-dim); }
+  .occ-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .occ-panel h4 { font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .occ-panel h4 .occ-step-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: white; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .occ-intent-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .occ-intent-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 13px; outline: none; font-family: inherit; }
+  .occ-intent-input:focus { border-color: var(--accent); }
+  .occ-result { padding: 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; line-height: 1.6; }
+  .occ-result .occ-action-name { font-weight: 700; color: var(--accent); font-size: 14px; }
+  .occ-result .occ-reason { color: var(--text-dim); margin-top: 4px; }
+  .occ-confirm-row { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+  .occ-exec-output { margin-top: 14px; }
+  .occ-exec-output pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 12px; font-family: 'SF Mono', 'Fira Code', monospace; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto; color: var(--text); }
+  .occ-exec-output .occ-exit-code { font-size: 11px; margin-top: 6px; font-weight: 600; }
+  .occ-exec-output .occ-exit-code.success { color: var(--green); }
+  .occ-exec-output .occ-exit-code.error { color: var(--red); }
+  .occ-disabled-notice { padding: 24px; text-align: center; color: var(--text-dim); font-size: 14px; }
+  .occ-disabled-notice code { background: var(--surface2); padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .occ-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: occ-spin 0.6s linear infinite; margin-right: 6px; vertical-align: middle; }
+  @keyframes occ-spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -333,6 +375,7 @@
       <div class="nav-item"><span class="nav-icon">◉</span> Analytics</div>
       <div class="nav-label">Operations</div>
       <div class="nav-item" data-view="reticulator" onclick="switchView('reticulator')"><span class="nav-icon">⚙</span> Upgrade Reticulator</div>
+      <div class="nav-item" data-view="oc-control" onclick="switchView('oc-control')"><span class="nav-icon">⚡</span> OC Control</div>
       <div class="nav-label">Projects</div>
       <div id="sidebar-projects"></div>
     </div>
@@ -361,6 +404,7 @@
     <div class="board" id="board"></div>
     <div class="list-view" id="list-view" style="display:none"></div>
     <div class="retic-view" id="retic-view"></div>
+    <div class="occ-view" id="occ-view"></div>
   </div>
 </div>
 
@@ -681,13 +725,15 @@ function switchView(view) {
   document.getElementById('board').style.display = view === 'board' ? 'flex' : 'none';
   document.getElementById('list-view').style.display = view === 'list' ? 'block' : 'none';
   document.getElementById('retic-view').style.display = view === 'reticulator' ? 'block' : 'none';
+  document.getElementById('occ-view').style.display = view === 'oc-control' ? 'block' : 'none';
   // Show/hide project-specific UI
   document.getElementById('summary-strip').style.display = isProject ? 'flex' : 'none';
   document.getElementById('undo-btn').style.display = isProject ? 'flex' : 'none';
-  const titles = { board: 'Project Board', list: 'Project List', reticulator: 'Upgrade Reticulator' };
+  const titles = { board: 'Project Board', list: 'Project List', reticulator: 'Upgrade Reticulator', 'oc-control': 'OC Control' };
   document.getElementById('view-title').textContent = titles[view] || 'Projects';
   render();
   if (view === 'reticulator') renderReticulator();
+  if (view === 'oc-control') renderOcControl();
 }
 
 // ── Render ──
@@ -1868,6 +1914,188 @@ document.addEventListener('keydown', e => {
     undo();
   }
 });
+
+// ── OC Control ──
+const occ = {
+  status: null,
+  planResult: null,
+  execResult: null,
+  loading: false,
+};
+
+async function loadOcStatus() {
+  try {
+    occ.status = await api('GET', '/oc-control/status');
+  } catch (e) {
+    occ.status = { enabled: false, ollamaReachable: false, error: e.message };
+  }
+}
+
+function renderOcControl() {
+  const container = document.getElementById('occ-view');
+  if (!occ.status) {
+    container.innerHTML = '<div style="padding:24px;color:var(--text-dim)"><span class="occ-spinner"></span> Loading OC Control status...</div>';
+    loadOcStatus().then(renderOcControl);
+    return;
+  }
+
+  const s = occ.status;
+
+  if (!s.enabled) {
+    container.innerHTML = `
+      <div class="occ-header">
+        <h3>⚡ OC Control</h3>
+        <p>Bounded decision engine for OpenClaw operations, powered by a local Ollama model.</p>
+      </div>
+      <div class="occ-disabled-notice">
+        <p>OC Control is currently <strong>disabled</strong>.</p>
+        <p style="margin-top:8px">To enable, set <code>"ocControl": { "enabled": true }</code> in <code>local/openclaw.config.json</code> and restart the server.</p>
+      </div>`;
+    return;
+  }
+
+  const ollamaDot = s.ollamaReachable ? 'on' : 'off';
+  const ollamaLabel = s.ollamaReachable ? 'Ollama connected' : 'Ollama unreachable';
+
+  let planHTML = '';
+  if (occ.planResult) {
+    const p = occ.planResult;
+    if (p.error) {
+      planHTML = `<div class="occ-result" style="border-color:var(--red);color:var(--red)">${esc(p.error)}${p.raw ? '<br><br><code>' + esc(p.raw) + '</code>' : ''}</div>`;
+    } else {
+      planHTML = `
+        <div class="occ-result">
+          <div class="occ-action-name">${esc(p.action)}</div>
+          <div class="occ-reason">${esc(p.reason)}</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--text-dim)">Model: ${esc(p.model)}</div>
+        </div>
+        ${p.action !== 'no_action' ? `
+        <div class="occ-confirm-row">
+          <button class="btn btn-primary" onclick="occRunAction('${esc(p.action)}')">Confirm &amp; Execute</button>
+          <button class="btn" onclick="occClearPlan()">Cancel</button>
+          <span style="font-size:12px;color:var(--text-dim);margin-left:8px">This will run the mapped script locally.</span>
+        </div>` : '<div style="margin-top:10px;font-size:12px;color:var(--text-dim)">No action needed — nothing to execute.</div>'}`;
+    }
+  }
+
+  let execHTML = '';
+  if (occ.execResult) {
+    const r = occ.execResult;
+    if (r.error) {
+      execHTML = `<div class="occ-exec-output"><pre style="border-color:var(--red)">${esc(r.error)}</pre></div>`;
+    } else {
+      const isOk = r.exitCode === 0;
+      execHTML = `
+        <div class="occ-exec-output">
+          <pre>${esc(r.stdout || '(no output)')}${r.stderr ? '\n--- stderr ---\n' + esc(r.stderr) : ''}</pre>
+          <div class="occ-exit-code ${isOk ? 'success' : 'error'}">Exit code: ${r.exitCode} — ${isOk ? 'Success' : 'Failed'} (script: ${esc(r.script || 'n/a')})</div>
+        </div>`;
+    }
+  }
+
+  // Build the allowed actions sidebar from the status data
+  const actions = s.allowedActions || {};
+  const actionKeys = Object.keys(actions).filter(k => k !== 'no_action');
+  const actionsListHTML = actionKeys.map(key => {
+    const a = actions[key];
+    return `
+      <div class="occ-action-item">
+        <div class="occ-action-key">${esc(key)}</div>
+        <div class="occ-action-label">${esc(a.label || '')}</div>
+        <div class="occ-action-desc">${esc(a.description || '')}</div>
+        ${a.script ? `<div class="occ-action-script">${esc(a.script)}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="occ-header">
+      <h3>⚡ OC Control</h3>
+      <p>Bounded decision engine for OpenClaw operations. The local model selects from a strict allowlist — it never executes commands directly.</p>
+    </div>
+
+    <div class="occ-status-bar">
+      <div class="occ-status-chip"><span class="occ-dot on"></span> OC Control enabled</div>
+      <div class="occ-status-chip"><span class="occ-dot ${ollamaDot}"></span> ${esc(ollamaLabel)}</div>
+      <div class="occ-status-chip">Model: <strong style="margin-left:4px">${esc(s.model)}</strong></div>
+      <div class="occ-status-chip">Actions: <strong style="margin-left:4px">${actionKeys.length}</strong></div>
+      <button class="btn" style="margin-left:auto" onclick="occRefreshStatus()">Refresh</button>
+    </div>
+
+    <div class="occ-layout">
+      <div class="occ-main">
+        <div class="occ-panel">
+          <h4><span class="occ-step-num">1</span> Describe your intent</h4>
+          <div class="occ-intent-row">
+            <input class="occ-intent-input" id="occ-intent" placeholder="e.g. Restart the OpenClaw gateway" onkeydown="if(event.key==='Enter')occSendPlan()" ${occ.loading ? 'disabled' : ''} />
+            <button class="btn btn-primary" onclick="occSendPlan()" ${occ.loading ? 'disabled' : ''}>${occ.loading ? '<span class="occ-spinner"></span> Thinking...' : 'Ask Gemma'}</button>
+          </div>
+        </div>
+
+        <div class="occ-panel" ${!occ.planResult ? 'style="opacity:0.5"' : ''}>
+          <h4><span class="occ-step-num">2</span> Review chosen action</h4>
+          ${planHTML || '<div style="font-size:13px;color:var(--text-dim)">Submit an intent above to see the model\'s recommended action.</div>'}
+        </div>
+
+        <div class="occ-panel" ${!occ.execResult ? 'style="opacity:0.5"' : ''}>
+          <h4><span class="occ-step-num">3</span> Execution result</h4>
+          ${execHTML || '<div style="font-size:13px;color:var(--text-dim)">Confirm an action above to see the execution output here.</div>'}
+        </div>
+      </div>
+
+      <div class="occ-sidebar">
+        <div class="occ-actions-panel">
+          <h4>Allowed Actions</h4>
+          ${actionsListHTML || '<div style="font-size:12px;color:var(--text-dim)">No actions configured.</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function occRefreshStatus() {
+  occ.status = null;
+  renderOcControl();
+}
+
+async function occSendPlan() {
+  const input = document.getElementById('occ-intent');
+  const intent = input.value.trim();
+  if (!intent) { input.focus(); return; }
+
+  occ.loading = true;
+  occ.planResult = null;
+  occ.execResult = null;
+  renderOcControl();
+
+  try {
+    occ.planResult = await api('POST', '/oc-control/plan', { userIntent: intent });
+  } catch (e) {
+    occ.planResult = { error: e.message };
+  }
+
+  occ.loading = false;
+  renderOcControl();
+}
+
+function occClearPlan() {
+  occ.planResult = null;
+  occ.execResult = null;
+  renderOcControl();
+}
+
+async function occRunAction(action) {
+  occ.execResult = null;
+  occ.loading = true;
+  renderOcControl();
+
+  try {
+    occ.execResult = await api('POST', '/oc-control/run', { action });
+  } catch (e) {
+    occ.execResult = { error: e.message };
+  }
+
+  occ.loading = false;
+  renderOcControl();
+}
 
 // ── Initialization ──
 async function init() {

@@ -71,7 +71,8 @@ My Project Dashboard/
 │   └── openclaw.config.json  # Local config (git-ignored)
 ├── scripts/
 │   └── oc-control/
-│       └── restart-oc-15s.sh  # Approved OC Control script
+│       ├── restart-oc-5s.sh       # Restart gateway (5s delay)
+│       └── stop-oc-gateway.sh    # Stop gateway
 ├── .gitignore
 └── README.md
 ```
@@ -110,6 +111,7 @@ Each tracked project folder contains a `.openclaw.json`:
 - **Undo system** — snapshot-based, up to 30 levels deep (Ctrl+Z supported)
 - **Offline fallback** — works in-memory if the server is unreachable
 - **Upgrade Reticulator** — operations watchlist for OC upgrade concerns, with its own independent datastore
+- **OC Control** — bounded decision engine using local Ollama/Gemma to plan and execute approved OpenClaw operations
 - **Zero dependencies** — pure Node.js server, no npm install required
 
 ## API Endpoints
@@ -180,7 +182,8 @@ All approved control scripts are in `scripts/oc-control/`. Currently:
 
 | Script | Action Key | What it does |
 |--------|------------|--------------|
-| `restart-oc-15s.sh` | `restart_oc_15s` | Stops the OC gateway, waits 15s, restarts it |
+| `restart-oc-5s.sh` | `restart_oc_5s` | Stops the OC gateway, waits 5s, restarts it (resilient — works even if gateway is already stopped) |
+| `stop-oc-gateway.sh` | `stop_oc_gateway` | Stops the OC gateway and leaves it stopped |
 
 Scripts run via `/bin/bash` and must be `chmod +x`. They are never generated or modified by the LLM.
 
@@ -194,16 +197,21 @@ Add these sections to `local/openclaw.config.json`:
     "provider": "ollama",
     "baseUrl": "http://localhost:11434",
     "model": "gemma3",
-    "timeoutMs": 30000
+    "timeoutMs": 90000
   },
   "ocControl": {
     "enabled": true,
     "scriptsDir": "/absolute/path/to/scripts/oc-control",
     "allowedActions": {
-      "restart_oc_15s": {
-        "label": "Restart OpenClaw gateway (15s delay)",
-        "script": "restart-oc-15s.sh",
-        "description": "Stop the OpenClaw gateway, wait 15 seconds, then restart it."
+      "restart_oc_5s": {
+        "label": "Restart OpenClaw gateway (5s delay)",
+        "script": "restart-oc-5s.sh",
+        "description": "Stop the OpenClaw gateway, wait 5 seconds, then restart it."
+      },
+      "stop_oc_gateway": {
+        "label": "Stop OpenClaw gateway",
+        "script": "stop-oc-gateway.sh",
+        "description": "Stop the OpenClaw gateway and leave it stopped."
       },
       "no_action": {
         "label": "No action required",
@@ -244,6 +252,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap with details on each plann
 
 Highlights:
 - [x] Upgrade Reticulator — operations dashboard for OC upgrade concerns
+- [x] OC Control — bounded decision engine via local Ollama/Gemma
 - [x] Kanban board with drag-and-drop
 - [x] List view with sortable columns
 - [x] Folder browser with pinning

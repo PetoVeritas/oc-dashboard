@@ -16,6 +16,9 @@ Browse-to-folder picker in the create/edit modal. Pinned directories, hidden fil
 ### List View
 Sortable table view with columns for name, status, priority, progress, components, and last updated. Clickable component chips and inline edit/delete actions.
 
+### OC Control — Bounded Decision Engine
+Local Ollama/Gemma integration as a bounded action planner for OpenClaw operations. The model selects from a strict allowlist of pre-approved actions — it never gets shell access or generates arbitrary commands. OCDash validates the model's choice and maps it to an approved local script. Three-step UI flow: describe intent, review chosen action, confirm execution. Allowed actions sidebar populated dynamically from config JSON. Ships with two approved scripts: gateway restart (5s delay, resilient) and gateway stop.
+
 ---
 
 ## In Progress

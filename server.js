@@ -23,6 +23,7 @@ const LLM_DEFAULTS = {
   baseUrl: 'http://localhost:11434',
   model: 'gemma3',
   timeoutMs: 90000,
+  numCtx: 96000,
 };
 
 const OC_CONTROL_DEFAULTS = {
@@ -469,6 +470,7 @@ function ollamaGenerate(prompt) {
       prompt,
       stream: false,
       format: 'json',
+      keep_alive: '5m',
       options: { temperature: 0.1 },
     });
 
@@ -645,6 +647,240 @@ async function handleOcControlRun(req, res) {
   });
 }
 
+// ── OC Control: Model Management & Chat ──
+
+// Generic Ollama HTTP helper (GET or POST)
+function ollamaRequest(method, urlPath, payload) {
+  return new Promise((resolve, reject) => {
+    const { baseUrl, timeoutMs } = config.llm;
+    const urlObj = new URL(urlPath, baseUrl);
+    const transport = urlObj.protocol === 'https:' ? https : http;
+
+    const reqOpts = {
+      hostname: urlObj.hostname,
+      port: urlObj.port,
+      path: urlObj.pathname,
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      timeout: timeoutMs,
+    };
+
+    const request = transport.request(reqOpts, (resp) => {
+      let body = '';
+      resp.on('data', chunk => body += chunk);
+      resp.on('end', () => {
+        try { resolve(JSON.parse(body)); }
+        catch (_) { resolve({ _raw: body }); }
+      });
+    });
+
+    request.on('timeout', () => { request.destroy(); reject(new Error('Ollama request timed out')); });
+    request.on('error', (e) => reject(new Error('Ollama connection failed: ' + e.message)));
+
+    if (payload) {
+      const data = JSON.stringify(payload);
+      request.setHeader('Content-Length', Buffer.byteLength(data));
+      request.write(data);
+    }
+    request.end();
+  });
+}
+
+// In-memory chat session
+let chatSession = {
+  messages: [],
+  model: null,
+};
+
+// GET /api/oc-control/model-status — Check if the configured model is loaded in Ollama
+async function handleModelStatus(req, res) {
+  try {
+    const psData = await ollamaRequest('GET', '/api/ps');
+    const models = psData.models || [];
+    const configModel = config.llm.model;
+    const now = new Date();
+
+    // Build a summary of ALL loaded models
+    const allLoaded = models.map(m => {
+      const expiresAt = m.expires_at ? new Date(m.expires_at) : null;
+      const remainingMs = expiresAt ? Math.max(0, expiresAt.getTime() - now.getTime()) : null;
+      const sizeMB = m.size ? Math.round(m.size / 1024 / 1024) : null;
+      const vramMB = m.size_vram ? Math.round(m.size_vram / 1024 / 1024) : null;
+      return {
+        name: m.name || 'unknown',
+        sizeMB,
+        vramMB,
+        expiresAt: m.expires_at || null,
+        remainingMs,
+        remainingSec: remainingMs !== null ? Math.round(remainingMs / 1000) : null,
+      };
+    });
+
+    // Find our configured model in the running list
+    const match = models.find(m => {
+      const name = (m.name || '').toLowerCase();
+      const target = configModel.toLowerCase();
+      return name === target || name.startsWith(target + ':') || name === target + ':latest';
+    });
+
+    if (match) {
+      const expiresAt = match.expires_at ? new Date(match.expires_at) : null;
+      const remainingMs = expiresAt ? Math.max(0, expiresAt.getTime() - now.getTime()) : null;
+      const totalBytes = match.size || 0;
+      const vramBytes = match.size_vram || 0;
+      const cpuBytes = totalBytes - vramBytes;
+      const gpuPct = totalBytes > 0 ? Math.round((vramBytes / totalBytes) * 100) : 0;
+      const cpuPct = totalBytes > 0 ? 100 - gpuPct : 0;
+      const details = match.details || {};
+
+      // Fetch running context size from /api/show
+      let contextLength = null;
+      try {
+        const showData = await ollamaRequest('POST', '/api/show', { name: match.name });
+        const modelInfo = showData.model_info || {};
+        // Look for context length in model_info keys
+        for (const key of Object.keys(modelInfo)) {
+          if (key.includes('context_length')) {
+            contextLength = modelInfo[key];
+            break;
+          }
+        }
+      } catch (_) { /* leave null */ }
+
+      sendJSON(res, 200, {
+        loaded: true,
+        model: match.name,
+        size: totalBytes,
+        sizeVram: vramBytes,
+        sizeMB: Math.round(totalBytes / 1024 / 1024),
+        vramMB: Math.round(vramBytes / 1024 / 1024),
+        cpuMB: Math.round(cpuBytes / 1024 / 1024),
+        gpuPct,
+        cpuPct,
+        contextLength,
+        configuredCtx: config.llm.numCtx || 96000,
+        quantization: details.quantization_level || null,
+        family: details.family || null,
+        parameterSize: details.parameter_size || null,
+        expiresAt: match.expires_at || null,
+        remainingMs,
+        remainingSec: remainingMs !== null ? Math.round(remainingMs / 1000) : null,
+        chatMessages: chatSession.messages.length,
+        allLoadedModels: allLoaded,
+      });
+    } else {
+      sendJSON(res, 200, {
+        loaded: false,
+        model: configModel,
+        expiresAt: null,
+        remainingMs: null,
+        remainingSec: null,
+        chatMessages: chatSession.messages.length,
+        allLoadedModels: allLoaded,
+      });
+    }
+  } catch (e) {
+    sendJSON(res, 502, { error: e.message, loaded: false, allLoadedModels: [] });
+  }
+}
+
+// POST /api/oc-control/warm — Prime the model by sending a trivial request with a long keep_alive
+async function handleWarmModel(req, res) {
+  try {
+    const keepAlive = '30m';
+    const numCtx = config.llm.numCtx || 96000;
+
+    // Load the model with the full context window to match OpenClaw's footprint
+    const result = await ollamaRequest('POST', '/api/generate', {
+      model: config.llm.model,
+      prompt: 'Respond with the single word: ready',
+      stream: false,
+      keep_alive: keepAlive,
+      options: { num_predict: 5, num_ctx: numCtx },
+    });
+
+    sendJSON(res, 200, {
+      status: 'warm',
+      model: config.llm.model,
+      keepAlive,
+      numCtx,
+      response: ((result.response || '')).trim(),
+    });
+  } catch (e) {
+    sendJSON(res, 502, { error: e.message });
+  }
+}
+
+// POST /api/oc-control/unload — Force-unload the model from Ollama
+async function handleUnloadModel(req, res) {
+  try {
+    await ollamaRequest('POST', '/api/generate', {
+      model: config.llm.model,
+      prompt: '',
+      stream: false,
+      keep_alive: '0',
+    });
+    // Clear chat session since model context is gone
+    chatSession = { messages: [], model: config.llm.model };
+    sendJSON(res, 200, { status: 'unloaded', model: config.llm.model });
+  } catch (e) {
+    sendJSON(res, 502, { error: e.message });
+  }
+}
+
+// POST /api/oc-control/chat — Send a message in the persistent chat session
+async function handleChat(req, res) {
+  const { message } = await readBody(req);
+  if (!message || !message.trim()) {
+    return sendJSON(res, 400, { error: 'message is required' });
+  }
+
+  // Reset session if model changed
+  if (chatSession.model !== config.llm.model) {
+    chatSession = { messages: [], model: config.llm.model };
+  }
+
+  chatSession.messages.push({ role: 'user', content: message.trim() });
+
+  try {
+    const result = await ollamaRequest('POST', '/api/chat', {
+      model: config.llm.model,
+      messages: chatSession.messages,
+      stream: false,
+      keep_alive: '30m',
+      options: { num_ctx: config.llm.numCtx || 96000 },
+    });
+
+    const reply = (result.message && result.message.content) || '(no response)';
+    chatSession.messages.push({ role: 'assistant', content: reply });
+
+    sendJSON(res, 200, {
+      reply,
+      messageCount: chatSession.messages.length,
+      model: config.llm.model,
+    });
+  } catch (e) {
+    // Remove the failed user message so session stays consistent
+    chatSession.messages.pop();
+    sendJSON(res, 502, { error: e.message });
+  }
+}
+
+// POST /api/oc-control/chat/clear — Clear the chat session
+function handleChatClear(req, res) {
+  const count = chatSession.messages.length;
+  chatSession = { messages: [], model: config.llm.model };
+  sendJSON(res, 200, { status: 'cleared', previousMessages: count });
+}
+
+// GET /api/oc-control/chat/history — Return current chat session
+function handleChatHistory(req, res) {
+  sendJSON(res, 200, {
+    messages: chatSession.messages,
+    model: chatSession.model,
+  });
+}
+
 // GET /api/oc-control/status — Check OC Control config and Ollama reachability
 async function handleOcControlStatus(req, res) {
   const status = {
@@ -758,11 +994,29 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/oc-control/status' && req.method === 'GET') {
       return await handleOcControlStatus(req, res);
     }
+    if (pathname === '/api/oc-control/model-status' && req.method === 'GET') {
+      return await handleModelStatus(req, res);
+    }
+    if (pathname === '/api/oc-control/warm' && req.method === 'POST') {
+      return await handleWarmModel(req, res);
+    }
+    if (pathname === '/api/oc-control/unload' && req.method === 'POST') {
+      return await handleUnloadModel(req, res);
+    }
     if (pathname === '/api/oc-control/plan' && req.method === 'POST') {
       return await handleOcControlPlan(req, res);
     }
     if (pathname === '/api/oc-control/run' && req.method === 'POST') {
       return await handleOcControlRun(req, res);
+    }
+    if (pathname === '/api/oc-control/chat' && req.method === 'POST') {
+      return await handleChat(req, res);
+    }
+    if (pathname === '/api/oc-control/chat/clear' && req.method === 'POST') {
+      return handleChatClear(req, res);
+    }
+    if (pathname === '/api/oc-control/chat/history' && req.method === 'GET') {
+      return handleChatHistory(req, res);
     }
 
     // 404

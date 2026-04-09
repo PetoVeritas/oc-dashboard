@@ -374,6 +374,9 @@
   .occ-metric { display: flex; flex-direction: column; padding: 4px 10px; background: var(--surface2); border-radius: 6px; min-width: 70px; }
   .occ-metric-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); }
   .occ-metric-value { font-size: 13px; font-weight: 600; font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text); }
+  .occ-model-select { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; appearance: auto; max-width: 220px; }
+  .occ-model-select:hover { border-color: var(--accent); }
+  .occ-model-select:disabled { opacity: 0.5; cursor: not-allowed; }
   .occ-warm-btn { padding: 6px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; border: 1px solid var(--green); background: var(--green-bg); color: var(--green); cursor: pointer; transition: all 0.15s; }
   .occ-warm-btn:hover { background: var(--green); color: white; }
   .occ-warm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -2010,6 +2013,9 @@ const occ = {
   warming: false,
   chatMessages: [],
   chatLoading: false,
+  availableModels: [],
+  activeModel: null,
+  switchingModel: false,
 };
 
 async function loadOcStatus() {
@@ -2230,13 +2236,14 @@ async function occPollModelStatus() {
   } catch (e) {
     occ.modelStatus = { loaded: false, error: e.message };
   }
+  await occFetchModels();
   renderOccModelBar();
 }
 
 function occStartPolling() {
   if (occ.modelPollTimer) return;
   occPollModelStatus();
-  occ.modelPollTimer = setInterval(occPollModelStatus, 33000);
+  occ.modelPollTimer = setInterval(occPollModelStatus, 11000);
 }
 
 function occStopPolling() {
@@ -2270,7 +2277,7 @@ function renderOccModelBar() {
     topRow = `
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;width:100%">
         <div class="occ-model-indicator"><span class="occ-dot on"></span> Model Loaded</div>
-        <span class="occ-model-detail">${esc(m.model)}</span>
+        ${occModelDropdownHTML()}
         <span class="occ-model-detail">Unloads in:</span>
         <span class="occ-model-countdown ${expiring ? 'expiring' : ''}">${timeStr}</span>
         ${m.chatMessages > 0 ? `<span class="occ-model-detail">${m.chatMessages} chat msgs</span>` : ''}
@@ -2289,7 +2296,7 @@ function renderOccModelBar() {
   } else {
     topRow = `
       <div class="occ-model-indicator"><span class="occ-dot off"></span> Model Not Loaded</div>
-      <span class="occ-model-detail">${esc(m.model || '')}</span>
+      ${occModelDropdownHTML()}
       <span class="occ-model-detail" style="color:var(--text-dim)">Cold start ~60s</span>
       <button class="occ-warm-btn" onclick="occWarmModel()" ${occ.warming ? 'disabled' : ''} style="margin-left:auto">${occ.warming ? '<span class="occ-spinner"></span> Warming up...' : 'Prime the Pump'}</button>`;
   }
@@ -2327,6 +2334,47 @@ function renderOccModelBar() {
   }
 
   el.innerHTML = topRow + modelsHTML;
+}
+
+function occModelDropdownHTML() {
+  const models = occ.availableModels;
+  const active = occ.activeModel || (occ.modelStatus && occ.modelStatus.model) || '';
+  if (!models.length) {
+    return `<span class="occ-model-detail">${esc(active)}</span>`;
+  }
+  const opts = models.map(m => {
+    const sel = m.name === active ? 'selected' : '';
+    const label = m.parameterSize ? `${m.name} (${m.parameterSize})` : m.name;
+    return `<option value="${esc(m.name)}" ${sel}>${esc(label)}</option>`;
+  }).join('');
+  return `<select class="occ-model-select" onchange="occSwitchModel(this.value)" ${occ.switchingModel ? 'disabled' : ''}>${opts}</select>`;
+}
+
+async function occFetchModels() {
+  try {
+    const data = await api('GET', '/oc-control/models');
+    occ.availableModels = data.models || [];
+    occ.activeModel = data.activeModel || null;
+  } catch (_) {
+    occ.availableModels = [];
+  }
+}
+
+async function occSwitchModel(model) {
+  if (!model || occ.switchingModel) return;
+  occ.switchingModel = true;
+  renderOccModelBar();
+  try {
+    const data = await api('POST', '/oc-control/switch-model', { model });
+    occ.activeModel = data.activeModel;
+    occ.chatMessages = [];
+    showToast('Switched to ' + data.activeModel);
+  } catch (e) {
+    showToast('Switch failed: ' + e.message);
+  }
+  occ.switchingModel = false;
+  await occPollModelStatus();
+  renderOccChat();
 }
 
 async function occWarmModel() {

@@ -758,7 +758,7 @@ async function handleModelStatus(req, res) {
         gpuPct,
         cpuPct,
         contextLength,
-        configuredCtx: config.llm.numCtx || 96000,
+        configuredCtx: resolveNumCtx(),
         quantization: details.quantization_level || null,
         family: details.family || null,
         parameterSize: details.parameter_size || null,
@@ -784,11 +784,21 @@ async function handleModelStatus(req, res) {
   }
 }
 
+// Resolve the correct num_ctx for the active model.
+// Models with an explicit context hint in the name (e.g. "-48k") get that value;
+// everything else falls back to the configured default (96000).
+function resolveNumCtx() {
+  const model = (config.llm.model || '').toLowerCase();
+  const ctxMatch = model.match(/(\d+)k\b/);
+  if (ctxMatch) return parseInt(ctxMatch[1], 10) * 1000;
+  return config.llm.numCtx || 96000;
+}
+
 // POST /api/oc-control/warm — Prime the model by sending a trivial request with a long keep_alive
 async function handleWarmModel(req, res) {
   try {
     const keepAlive = '30m';
-    const numCtx = config.llm.numCtx || 96000;
+    const numCtx = resolveNumCtx();
 
     // Load the model with the full context window to match OpenClaw's footprint
     const result = await ollamaRequest('POST', '/api/generate', {
@@ -848,7 +858,7 @@ async function handleChat(req, res) {
       messages: chatSession.messages,
       stream: false,
       keep_alive: '30m',
-      options: { num_ctx: config.llm.numCtx || 96000 },
+      options: { num_ctx: resolveNumCtx() },
     });
 
     const reply = (result.message && result.message.content) || '(no response)';
@@ -878,6 +888,45 @@ function handleChatHistory(req, res) {
   sendJSON(res, 200, {
     messages: chatSession.messages,
     model: chatSession.model,
+  });
+}
+
+// GET /api/oc-control/models — List all locally available Ollama models
+async function handleListModels(req, res) {
+  try {
+    const tagsData = await ollamaRequest('GET', '/api/tags');
+    const models = (tagsData.models || []).map(m => ({
+      name: m.name,
+      size: m.size || null,
+      sizeMB: m.size ? Math.round(m.size / 1024 / 1024) : null,
+      family: (m.details && m.details.family) || null,
+      parameterSize: (m.details && m.details.parameter_size) || null,
+      quantization: (m.details && m.details.quantization_level) || null,
+    }));
+    sendJSON(res, 200, {
+      models,
+      activeModel: config.llm.model,
+    });
+  } catch (e) {
+    sendJSON(res, 502, { error: e.message });
+  }
+}
+
+// POST /api/oc-control/switch-model — Switch the active model at runtime
+async function handleSwitchModel(req, res) {
+  const { model } = await readBody(req);
+  if (!model || !model.trim()) {
+    return sendJSON(res, 400, { error: 'model is required' });
+  }
+  const prev = config.llm.model;
+  config.llm.model = model.trim();
+  saveConfig();
+  // Clear chat session since the model changed
+  chatSession = { messages: [], model: config.llm.model };
+  sendJSON(res, 200, {
+    status: 'switched',
+    previousModel: prev,
+    activeModel: config.llm.model,
   });
 }
 
@@ -1017,6 +1066,12 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === '/api/oc-control/chat/history' && req.method === 'GET') {
       return handleChatHistory(req, res);
+    }
+    if (pathname === '/api/oc-control/models' && req.method === 'GET') {
+      return handleListModels(req, res);
+    }
+    if (pathname === '/api/oc-control/switch-model' && req.method === 'POST') {
+      return handleSwitchModel(req, res);
     }
 
     // 404

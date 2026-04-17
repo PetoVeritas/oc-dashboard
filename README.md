@@ -112,9 +112,12 @@ Each tracked project folder contains a `.openclaw.json`:
 - **Offline fallback** — works in-memory if the server is unreachable
 - **Upgrade Reticulator** — operations watchlist for OC upgrade concerns, with its own independent datastore
 - **OC Control** — bounded decision engine using local Ollama/Gemma to plan and execute approved OpenClaw operations
+- **Multi-provider model management** — supports Ollama and OpenAI-compatible providers (e.g. local MLX services) with per-model config, health checks, worker state tracking, idle countdown timers, and offload controls
 - **Zero dependencies** — pure Node.js server, no npm install required
 
 ## API Endpoints
+
+### Core
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -128,13 +131,30 @@ Each tracked project folder contains a `.openclaw.json`:
 | DELETE | `/api/pinned` | Unpin a directory |
 | GET | `/api/config` | View config |
 | PUT | `/api/config` | Update config |
+| POST | `/api/config/roots` | Add a project root directory |
 | GET | `/api/upgrade-items` | List all reticulator items |
 | POST | `/api/upgrade-items` | Create upgrade item |
 | PUT | `/api/upgrade-items/:id` | Update upgrade item |
 | DELETE | `/api/upgrade-items/:id` | Remove upgrade item |
-| GET | `/api/oc-control/status` | OC Control status + Ollama health check |
-| POST | `/api/oc-control/plan` | Bounded action planning via Ollama |
+
+### OC Control
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/oc-control/status` | OC Control status + provider health checks |
+| GET | `/api/oc-control/model-status` | Currently loaded models across all providers |
+| GET | `/api/oc-control/models` | List configured models (JSON-driven, cross-referenced with providers) |
+| POST | `/api/oc-control/switch-model` | Switch the active model at runtime |
+| GET | `/api/oc-control/preview-ctx` | Preview what num_ctx OCDash would request for a model |
+| GET | `/api/oc-control/system-memory` | System RAM usage |
+| POST | `/api/oc-control/warm` | Prime a model (Ollama keep_alive) |
+| POST | `/api/oc-control/extend` | Refresh keep_alive without re-spinning (Ollama) |
+| POST | `/api/oc-control/unload` | Unload a model (routes to Ollama or provider admin endpoint) |
+| POST | `/api/oc-control/plan` | Bounded action planning via the active model |
 | POST | `/api/oc-control/run` | Execute an approved control script |
+| POST | `/api/oc-control/chat` | Send a chat message to the active model |
+| POST | `/api/oc-control/chat/clear` | Clear the chat session |
+| GET | `/api/oc-control/chat/history` | Get current chat session messages |
 
 ## Configuration
 
@@ -152,7 +172,7 @@ Each tracked project folder contains a `.openclaw.json`:
 
 ## OC Control — Bounded Decision Engine
 
-OC Control lets OCDash use a local Ollama-hosted model (e.g. Gemma) as a **planner/selector** for OpenClaw operational actions. The model never gets shell access — it only picks from a strict allowlist, and OCDash maps the chosen action to an approved local script.
+OC Control lets OCDash use a local model as a **planner/selector** for OpenClaw operational actions. The model never gets shell access — it only picks from a strict allowlist, and OCDash maps the chosen action to an approved local script. Supports multiple providers: Ollama-hosted models and OpenAI-compatible local services (e.g. MLX).
 
 ### Architecture
 
@@ -160,7 +180,7 @@ OC Control lets OCDash use a local Ollama-hosted model (e.g. Gemma) as a **plann
   User intent
       │
       ▼
-  OCDash server ──POST──▶ Ollama (Gemma)
+  OCDash server ──POST──▶ Model provider (Ollama / OpenAI-compat)
       │                        │
       │◀── JSON: { action } ───┘
       │
@@ -196,8 +216,17 @@ Add these sections to `local/openclaw.config.json`:
   "llm": {
     "provider": "ollama",
     "baseUrl": "http://localhost:11434",
-    "model": "gemma3",
-    "timeoutMs": 90000
+    "model": "gemma4:26b-a4b-it-q4_K_M-74k",
+    "timeoutMs": 90000,
+    "ceiling": 75776,
+    "models": {
+      "gemma4:26b-a4b-it-q4_K_M-74k": {
+        "numCtx": 75776
+      },
+      "gemma4:e4b-it-q8_0-48k": {
+        "numCtx": 49152
+      }
+    }
   },
   "ocControl": {
     "enabled": true,
@@ -225,17 +254,35 @@ Add these sections to `local/openclaw.config.json`:
 
 `ocControl.enabled` defaults to `false` — you must opt in. All other fields have sensible defaults.
 
-### API Endpoints
+#### Multi-provider model config
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/oc-control/status` | Check config, Ollama reachability, allowed actions |
-| POST | `/api/oc-control/plan` | Send `{ userIntent }`, get back the model's chosen action |
-| POST | `/api/oc-control/run` | Send `{ action }`, execute the mapped script |
+Each model in `llm.models` defaults to the top-level Ollama provider. To add an OpenAI-compatible local service (e.g. an MLX worker), set `provider` and `baseUrl` on the model entry:
 
-### Why Gemma is decision-only
+```json
+{
+  "llm": {
+    "models": {
+      "gemma-local-mlx-turboquant-26b-a4b-4bit": {
+        "provider": "openai",
+        "baseUrl": "http://127.0.0.1:<port>/v1",
+        "label": "Gemma Local MLX TurboQuant 26B A4B 4bit"
+      }
+    }
+  }
+}
+```
 
-Giving an LLM unrestricted shell access is a security and reliability risk. Instead, Gemma operates within a strict boundary: it receives a natural-language intent, selects from a tiny allowlist of pre-approved actions, and returns structured JSON. OCDash validates the response and maps it to a known script. If the model hallucinates an action that isn't in the allowlist, the request is rejected. This keeps the blast radius small and the control flow auditable.
+For OpenAI-compatible providers, OCDash checks three endpoints on the root URL (baseUrl with `/v1` stripped):
+
+- `/v1/models` — is the supervisor alive and model configured?
+- `/admin/stats` — actual worker load state (`worker.state`, `worker.loaded`, `worker.pid`)
+- `/ready` — hot vs cold readiness, idle countdown (`worker.idle_seconds`, `worker.idle_unload_threshold_s`)
+
+The unload button routes to `POST /admin/worker/unload` for these providers instead of Ollama's keep_alive mechanism.
+
+### Why the model is decision-only
+
+Giving an LLM unrestricted shell access is a security and reliability risk. Instead, the model operates within a strict boundary: it receives a natural-language intent, selects from a tiny allowlist of pre-approved actions, and returns structured JSON. OCDash validates the response and maps it to a known script. If the model hallucinates an action that isn't in the allowlist, the request is rejected. This keeps the blast radius small and the control flow auditable.
 
 ### Using the UI
 
@@ -243,7 +290,7 @@ Navigate to **OC Control** in the sidebar. The panel has three steps: describe y
 
 ### Prerequisites
 
-- [Ollama](https://ollama.com) running locally with a Gemma model pulled (`ollama pull gemma3`)
+- [Ollama](https://ollama.com) running locally with a Gemma model pulled (`ollama pull gemma4`), and/or an OpenAI-compatible local service (e.g. MLX) configured in the models map
 - `ocControl.enabled` set to `true` in config
 
 ## Roadmap
@@ -253,6 +300,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap with details on each plann
 Highlights:
 - [x] Upgrade Reticulator — operations dashboard for OC upgrade concerns
 - [x] OC Control — bounded decision engine via local Ollama/Gemma
+- [x] Multi-provider model management (Ollama + OpenAI-compatible/MLX)
 - [x] Kanban board with drag-and-drop
 - [x] List view with sortable columns
 - [x] Folder browser with pinning

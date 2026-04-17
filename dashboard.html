@@ -404,6 +404,56 @@
   .occ-divider { display: flex; align-items: center; gap: 14px; margin: 28px 0 20px; }
   .occ-divider-line { flex: 1; height: 1px; background: var(--border); }
   .occ-divider-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+
+  /* New three-section layout */
+  .occ-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; }
+  .occ-section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .occ-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+  .occ-section-num { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: white; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+  .occ-section-sub { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+
+  /* Section 1: Currently Loaded */
+  .occ-loaded-empty { padding: 20px; text-align: center; color: var(--text-dim); font-size: 13px; }
+  .occ-loaded-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .occ-loaded-card:last-child { margin-bottom: 0; }
+  .occ-loaded-card-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .occ-loaded-name { font-family: 'SF Mono', 'Fira Code', monospace; font-weight: 600; font-size: 13px; color: var(--text); }
+  .occ-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .occ-badge.ocdash { background: rgba(74, 158, 255, 0.15); color: var(--accent); border: 1px solid var(--accent); }
+  .occ-badge.external { background: rgba(255, 200, 87, 0.12); color: var(--yellow); border: 1px solid var(--yellow); }
+  .occ-badge.configured { background: rgba(74, 222, 128, 0.15); color: var(--green); border: 1px solid var(--green); }
+  .occ-loaded-actions { display: flex; gap: 6px; margin-left: auto; }
+  .occ-mini-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+  .occ-mini-btn:hover { border-color: var(--accent); }
+  .occ-mini-btn.danger { border-color: var(--red); color: var(--red); }
+  .occ-mini-btn.danger:hover { background: var(--red); color: white; }
+  .occ-mini-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Section 1: System memory strip */
+  .occ-ram-strip { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+  .occ-ram-row { display: flex; align-items: center; gap: 12px; }
+  .occ-ram-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); min-width: 32px; }
+  .occ-ram-bar { flex: 1; height: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; position: relative; }
+  .occ-ram-bar-fill { height: 100%; background: linear-gradient(90deg, var(--green) 0%, var(--accent) 60%, var(--yellow) 85%, var(--red) 100%); transition: width 0.4s ease; }
+  .occ-ram-legend { font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text); white-space: nowrap; }
+  .occ-ram-legend strong { color: var(--text); }
+  .occ-ram-legend .dim { color: var(--text-dim); }
+
+  /* Section 1: Other large processes */
+  .occ-procs { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+  .occ-procs-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .occ-procs-header-sub { color: var(--text-dim); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 10px; }
+  .occ-proc-row { display: flex; align-items: center; gap: 12px; padding: 4px 0; font-size: 12px; border-top: 1px solid var(--border); }
+  .occ-proc-row:first-of-type { border-top: none; }
+  .occ-proc-cmd { font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .occ-proc-mem { font-family: 'SF Mono', 'Fira Code', monospace; color: var(--accent); font-weight: 600; min-width: 70px; text-align: right; }
+  .occ-proc-pid { font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text-dim); font-size: 10px; min-width: 60px; text-align: right; }
+
+  /* Section 2: Launch a Model */
+  .occ-launch-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 0 12px; }
+  .occ-launch-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); font-weight: 600; }
+  .occ-ctx-preview { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text); }
+  .occ-ctx-preview .occ-ctx-source { color: var(--text-dim); font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; font-family: inherit; }
 </style>
 </head>
 <body>
@@ -2016,6 +2066,7 @@ const occ = {
   availableModels: [],
   activeModel: null,
   switchingModel: false,
+  systemMemory: null,
 };
 
 async function loadOcStatus() {
@@ -2051,6 +2102,14 @@ function renderOcControl() {
 
   const ollamaDot = s.ollamaReachable ? 'on' : 'off';
   const ollamaLabel = s.ollamaReachable ? 'Ollama connected' : 'Ollama unreachable';
+
+  // Build status chips for any non-Ollama providers
+  const providerChips = Object.entries(s.providers || {}).map(([url, info]) => {
+    const dot = info.reachable ? 'on' : 'off';
+    const shortUrl = url.replace(/^https?:\/\//, '').replace(/\/v1$/, '');
+    const label = info.reachable ? `MLX (${shortUrl}) connected` : `MLX (${shortUrl}) unreachable`;
+    return `<div class="occ-status-chip"><span class="occ-dot ${dot}"></span> ${esc(label)}</div>`;
+  }).join('');
 
   let planHTML = '';
   if (occ.planResult) {
@@ -2108,65 +2167,93 @@ function renderOcControl() {
       <p>Bounded decision engine for OpenClaw operations. The local model selects from a strict allowlist — it never executes commands directly.</p>
     </div>
 
-    <div class="occ-model-bar" id="occ-model-bar">
-      <span class="occ-model-detail"><span class="occ-spinner"></span> Checking model...</span>
+    <!-- Section 1: Currently Loaded -->
+    <div class="occ-section">
+      <div class="occ-section-header">
+        <span class="occ-section-num">1</span>
+        <span class="occ-section-title">Currently Loaded</span>
+        <span class="occ-section-sub" id="occ-loaded-sub">—</span>
+      </div>
+      <div id="occ-system-memory">
+        <div class="occ-loaded-empty"><span class="occ-spinner"></span> Reading system memory…</div>
+      </div>
+      <div id="occ-loaded-list" style="margin-top:10px">
+        <div class="occ-loaded-empty"><span class="occ-spinner"></span> Checking loaded models…</div>
+      </div>
+      <div id="occ-other-procs" style="margin-top:10px"></div>
     </div>
 
-    <div class="occ-chat">
-      <div class="occ-chat-header">
-        <h4>Chat with ${esc(s.model)}</h4>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span class="occ-chat-meta" id="occ-chat-count">${occ.chatMessages.length} messages</span>
-          <button class="btn" style="font-size:11px;padding:4px 10px" onclick="occClearChat()">Clear</button>
+    <!-- Section 2: Launch a Model -->
+    <div class="occ-section">
+      <div class="occ-section-header">
+        <span class="occ-section-num">2</span>
+        <span class="occ-section-title">Launch a Model</span>
+        <span class="occ-section-sub">OCDash will request the context shown</span>
+      </div>
+      <div id="occ-launch-panel">
+        <div class="occ-loaded-empty"><span class="occ-spinner"></span> Loading…</div>
+      </div>
+
+      <div class="occ-chat" style="margin-top:14px">
+        <div class="occ-chat-header">
+          <h4>Chat with <span id="occ-chat-model-name">${esc(s.model)}</span></h4>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="occ-chat-meta" id="occ-chat-count">${occ.chatMessages.length} messages</span>
+            <button class="btn" style="font-size:11px;padding:4px 10px" onclick="occClearChat()">Clear</button>
+          </div>
+        </div>
+        <div class="occ-chat-messages" id="occ-chat-messages">
+          <div class="occ-chat-empty">No messages yet. Chat with the model to keep it warm.</div>
+        </div>
+        <div class="occ-chat-input-row">
+          <input class="occ-chat-input" id="occ-chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();occSendChat()}" ${occ.chatLoading ? 'disabled' : ''} />
+          <button class="btn btn-primary" id="occ-chat-send" onclick="occSendChat()" ${occ.chatLoading ? 'disabled' : ''}>${occ.chatLoading ? '<span class="occ-spinner"></span>' : 'Send'}</button>
         </div>
       </div>
-      <div class="occ-chat-messages" id="occ-chat-messages">
-        <div class="occ-chat-empty">No messages yet. Chat with the model to keep it warm.</div>
+    </div>
+
+    <!-- Section 3: Bounded Action Control -->
+    <div class="occ-section" style="padding-bottom:20px">
+      <div class="occ-section-header">
+        <span class="occ-section-num">3</span>
+        <span class="occ-section-title">Bounded Action Control</span>
+        <span class="occ-section-sub">Uses the model selected in section 2</span>
       </div>
-      <div class="occ-chat-input-row">
-        <input class="occ-chat-input" id="occ-chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();occSendChat()}" ${occ.chatLoading ? 'disabled' : ''} />
-        <button class="btn btn-primary" id="occ-chat-send" onclick="occSendChat()" ${occ.chatLoading ? 'disabled' : ''}>${occ.chatLoading ? '<span class="occ-spinner"></span>' : 'Send'}</button>
+
+      <div class="occ-status-bar">
+        <div class="occ-status-chip"><span class="occ-dot on"></span> OC Control enabled</div>
+        <div class="occ-status-chip"><span class="occ-dot ${ollamaDot}"></span> ${esc(ollamaLabel)}</div>
+        ${providerChips}
+        <div class="occ-status-chip">Actions: <strong style="margin-left:4px">${actionKeys.length}</strong></div>
+        <button class="btn" style="margin-left:auto" onclick="occRefreshStatus()">Refresh</button>
       </div>
-    </div>
 
-    <div class="occ-divider">
-      <div class="occ-divider-line"></div>
-      <span class="occ-divider-label">Bounded Action Control</span>
-      <div class="occ-divider-line"></div>
-    </div>
+      <div class="occ-layout">
+        <div class="occ-main">
+          <div class="occ-panel">
+            <h4><span class="occ-step-num">1</span> Describe your intent</h4>
+            <div class="occ-intent-row">
+              <input class="occ-intent-input" id="occ-intent" placeholder="e.g. Restart the OpenClaw gateway" onkeydown="if(event.key==='Enter')occSendPlan()" ${occ.loading ? 'disabled' : ''} />
+              <button class="btn btn-primary" onclick="occSendPlan()" ${occ.loading ? 'disabled' : ''}>${occ.loading ? '<span class="occ-spinner"></span> Thinking...' : 'Ask Gemma'}</button>
+            </div>
+          </div>
 
-    <div class="occ-status-bar">
-      <div class="occ-status-chip"><span class="occ-dot on"></span> OC Control enabled</div>
-      <div class="occ-status-chip"><span class="occ-dot ${ollamaDot}"></span> ${esc(ollamaLabel)}</div>
-      <div class="occ-status-chip">Actions: <strong style="margin-left:4px">${actionKeys.length}</strong></div>
-      <button class="btn" style="margin-left:auto" onclick="occRefreshStatus()">Refresh</button>
-    </div>
+          <div class="occ-panel" ${!occ.planResult ? 'style="opacity:0.5"' : ''}>
+            <h4><span class="occ-step-num">2</span> Review chosen action</h4>
+            ${planHTML || '<div style="font-size:13px;color:var(--text-dim)">Submit an intent above to see the model\'s recommended action.</div>'}
+          </div>
 
-    <div class="occ-layout">
-      <div class="occ-main">
-        <div class="occ-panel">
-          <h4><span class="occ-step-num">1</span> Describe your intent</h4>
-          <div class="occ-intent-row">
-            <input class="occ-intent-input" id="occ-intent" placeholder="e.g. Restart the OpenClaw gateway" onkeydown="if(event.key==='Enter')occSendPlan()" ${occ.loading ? 'disabled' : ''} />
-            <button class="btn btn-primary" onclick="occSendPlan()" ${occ.loading ? 'disabled' : ''}>${occ.loading ? '<span class="occ-spinner"></span> Thinking...' : 'Ask Gemma'}</button>
+          <div class="occ-panel" ${!occ.execResult ? 'style="opacity:0.5"' : ''}>
+            <h4><span class="occ-step-num">3</span> Execution result</h4>
+            ${execHTML || '<div style="font-size:13px;color:var(--text-dim)">Confirm an action above to see the execution output here.</div>'}
           </div>
         </div>
 
-        <div class="occ-panel" ${!occ.planResult ? 'style="opacity:0.5"' : ''}>
-          <h4><span class="occ-step-num">2</span> Review chosen action</h4>
-          ${planHTML || '<div style="font-size:13px;color:var(--text-dim)">Submit an intent above to see the model\'s recommended action.</div>'}
-        </div>
-
-        <div class="occ-panel" ${!occ.execResult ? 'style="opacity:0.5"' : ''}>
-          <h4><span class="occ-step-num">3</span> Execution result</h4>
-          ${execHTML || '<div style="font-size:13px;color:var(--text-dim)">Confirm an action above to see the execution output here.</div>'}
-        </div>
-      </div>
-
-      <div class="occ-sidebar">
-        <div class="occ-actions-panel">
-          <h4>Allowed Actions</h4>
-          ${actionsListHTML || '<div style="font-size:12px;color:var(--text-dim)">No actions configured.</div>'}
+        <div class="occ-sidebar">
+          <div class="occ-actions-panel">
+            <h4>Allowed Actions</h4>
+            ${actionsListHTML || '<div style="font-size:12px;color:var(--text-dim)">No actions configured.</div>'}
+          </div>
         </div>
       </div>
     </div>`;
@@ -2183,7 +2270,9 @@ async function occRefreshStatus() {
 
 // After renderOcControl sets innerHTML, re-render dynamic sub-sections
 function occPostRender() {
-  renderOccModelBar();
+  renderOccSystemMemory();
+  renderOccLoadedSection();
+  renderOccLaunchSection();
   renderOccChat();
 }
 
@@ -2237,7 +2326,27 @@ async function occPollModelStatus() {
     occ.modelStatus = { loaded: false, error: e.message };
   }
   await occFetchModels();
-  renderOccModelBar();
+  await occFetchSystemMemory();
+
+  // Refresh ctx preview for whichever model is selected in the launch dropdown
+  const ms = occ.modelStatus || {};
+  const selected = ms.configuredModel || occ.activeModel;
+  if (selected) {
+    // Fire-and-forget; renderer will pick up the latest value on next paint
+    occFetchCtxPreview(selected).catch(() => {});
+  }
+
+  renderOccSystemMemory();
+  renderOccLoadedSection();
+  renderOccLaunchSection();
+}
+
+async function occFetchSystemMemory() {
+  try {
+    occ.systemMemory = await api('GET', '/oc-control/system-memory');
+  } catch (e) {
+    occ.systemMemory = { error: e.message };
+  }
 }
 
 function occStartPolling() {
@@ -2259,93 +2368,250 @@ function formatCountdown(sec) {
   return mins > 0 ? `${mins}m ${s}s` : `${s}s`;
 }
 
-function renderOccModelBar() {
-  const el = document.getElementById('occ-model-bar');
-  if (!el) return;
-  const m = occ.modelStatus;
-  if (!m) {
-    el.innerHTML = '<span class="occ-model-detail"><span class="occ-spinner"></span> Checking model...</span>';
+// ─────────────────────────────────────────
+// Section 1a: System memory strip + non-system large processes
+// ─────────────────────────────────────────
+function renderOccSystemMemory() {
+  const memEl = document.getElementById('occ-system-memory');
+  const procsEl = document.getElementById('occ-other-procs');
+  if (!memEl) return;
+
+  const sm = occ.systemMemory;
+  if (!sm || sm.error || !sm.memory) {
+    memEl.innerHTML = '<div class="occ-loaded-empty"><span class="occ-spinner"></span> Reading system memory…</div>';
+    if (procsEl) procsEl.innerHTML = '';
     return;
   }
 
-  // Top row: our configured model status + warm button
-  let topRow = '';
-  if (m.loaded) {
+  const m = sm.memory;
+  const totalGB = (m.totalMB / 1024).toFixed(1);
+  const usedGB = (m.usedMB / 1024).toFixed(1);
+  const freeGB = (m.freeMB / 1024).toFixed(1);
+  const pct = m.totalMB > 0 ? Math.min(100, Math.round((m.usedMB / m.totalMB) * 100)) : 0;
+  const swapStr = m.swapUsedMB > 0
+    ? ` · ${(m.swapUsedMB / 1024).toFixed(1)} GB swap`
+    : '';
+
+  memEl.innerHTML = `
+    <div class="occ-ram-strip">
+      <div class="occ-ram-row">
+        <span class="occ-ram-label">RAM</span>
+        <div class="occ-ram-bar"><div class="occ-ram-bar-fill" style="width:${pct}%"></div></div>
+        <span class="occ-ram-legend">
+          <strong>${usedGB} / ${totalGB} GB</strong>
+          <span class="dim"> · ${freeGB} GB free${swapStr}</span>
+        </span>
+      </div>
+    </div>`;
+
+  // Non-system processes >2.5 GB (excludes Ollama — those are in the loaded section)
+  const procs = sm.processes || [];
+  if (!procsEl) return;
+  if (procs.length === 0) {
+    procsEl.innerHTML = '';
+    return;
+  }
+  const thresholdGB = ((sm.thresholdMB || 2560) / 1024).toFixed(1);
+  procsEl.innerHTML = `
+    <div class="occ-procs">
+      <div class="occ-procs-header">
+        Other large processes
+        <span class="occ-procs-header-sub">(non-system, &gt;${thresholdGB} GB, excluding Ollama)</span>
+      </div>
+      ${procs.map(p => {
+        const memGB = (p.rssMB / 1024).toFixed(1);
+        const cmdBase = (p.comm || '').split('/').pop() || p.comm;
+        return `
+          <div class="occ-proc-row" title="${esc(p.comm)}">
+            <span class="occ-proc-cmd">${esc(cmdBase)}</span>
+            <span class="occ-proc-mem">${memGB} GB</span>
+            <span class="occ-proc-pid">PID ${p.pid}</span>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ─────────────────────────────────────────
+// Section 1b: Currently Loaded (pure ollama ps mirror)
+// ─────────────────────────────────────────
+function renderOccLoadedSection() {
+  const el = document.getElementById('occ-loaded-list');
+  const subEl = document.getElementById('occ-loaded-sub');
+  if (!el) return;
+
+  const ms = occ.modelStatus;
+  if (!ms) {
+    el.innerHTML = '<div class="occ-loaded-empty"><span class="occ-spinner"></span> Checking ollama ps…</div>';
+    if (subEl) subEl.textContent = '—';
+    return;
+  }
+
+  const loaded = ms.loadedModels || [];
+  if (subEl) subEl.textContent = loaded.length === 0 ? 'no models loaded' : `${loaded.length} loaded`;
+
+  if (loaded.length === 0) {
+    el.innerHTML = '<div class="occ-loaded-empty">No models currently loaded. Use section 2 below to launch one.</div>';
+    return;
+  }
+
+  el.innerHTML = loaded.map(m => {
+    if (m.provider === 'openai') {
+      // OpenAI-compatible provider card (e.g. MLX local service)
+      const badges = [];
+      badges.push('<span class="occ-badge external">MLX</span>');
+      if (m.isConfigured) badges.push('<span class="occ-badge configured">Selected</span>');
+      const displayName = m.label || m.name;
+      const shortUrl = (m.baseUrl || '').replace(/^https?:\/\//, '').replace(/\/v1$/, '');
+
+      // Worker state styling
+      const wLoaded = m.workerLoaded;
+      const wState = m.workerState || 'unknown';
+      const wColor = wLoaded ? 'var(--green)' : 'var(--text-dim)';
+      const wLabel = wLoaded ? (wState === 'ready' ? 'Loaded (ready)' : 'Loaded') : (wState === 'not_loaded' ? 'Unloaded' : 'Unknown');
+
+      // Ready state
+      const rState = m.readyState || '—';
+      const rColor = rState === 'actively_ready' ? 'var(--green)' : 'var(--text-dim)';
+
+      // Idle countdown (only when worker is loaded and idle-unload is enabled)
+      let timerHTML = '';
+      if (wLoaded && m.idleUnloadEnabled && m.idleRemainingSec != null) {
+        const remaining = m.idleRemainingSec;
+        const timeStr = formatCountdown(remaining);
+        const expiring = remaining < 60;
+        timerHTML = `
+          <span class="occ-model-detail">Auto-unloads in</span>
+          <span class="occ-model-countdown ${expiring ? 'expiring' : ''}">${timeStr}</span>`;
+      } else if (!wLoaded) {
+        timerHTML = '<span class="occ-model-detail" style="color:var(--text-dim)">Worker idle-unloaded</span>';
+      }
+
+      const busyKey = `loaded:${m.name}`;
+      const isBusy = occ.busyModels && occ.busyModels[busyKey];
+
+      return `
+        <div class="occ-loaded-card">
+          <div class="occ-loaded-card-head">
+            <span class="occ-loaded-name">${esc(displayName)}</span>
+            ${badges.join(' ')}
+            ${timerHTML}
+            <div class="occ-loaded-actions" style="margin-left:auto">
+              ${wLoaded ? `<button class="occ-mini-btn danger" onclick="occUnloadModel('${esc(m.name)}')" ${isBusy ? 'disabled' : ''} title="Unload the MLX worker">Offload</button>` : ''}
+            </div>
+          </div>
+          <div class="occ-metrics">
+            <div class="occ-metric"><span class="occ-metric-label">Service</span><span class="occ-metric-value" style="color:var(--green)">Running</span></div>
+            <div class="occ-metric"><span class="occ-metric-label">Worker</span><span class="occ-metric-value" style="color:${wColor}">${esc(wLabel)}</span></div>
+            <div class="occ-metric"><span class="occ-metric-label">Ready</span><span class="occ-metric-value" style="color:${rColor}">${esc(rState)}</span></div>
+            ${m.workerPid ? `<div class="occ-metric"><span class="occ-metric-label">Worker PID</span><span class="occ-metric-value">${m.workerPid}</span></div>` : ''}
+            ${m.remoteModelId ? `<div class="occ-metric"><span class="occ-metric-label">Model ID</span><span class="occ-metric-value">${esc(m.remoteModelId)}</span></div>` : ''}
+            ${m.idleUnloadEnabled ? `<div class="occ-metric"><span class="occ-metric-label">Idle timeout</span><span class="occ-metric-value">${m.idleUnloadThresholdS || '—'}s</span></div>` : ''}
+          </div>
+        </div>`;
+    }
+
+    // Ollama provider card (original)
     const remaining = m.remainingSec || 0;
     const timeStr = formatCountdown(remaining);
     const expiring = remaining < 300;
-    topRow = `
-      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;width:100%">
-        <div class="occ-model-indicator"><span class="occ-dot on"></span> Model Loaded</div>
-        ${occModelDropdownHTML()}
-        <span class="occ-model-detail">Unloads in:</span>
-        <span class="occ-model-countdown ${expiring ? 'expiring' : ''}">${timeStr}</span>
-        ${m.chatMessages > 0 ? `<span class="occ-model-detail">${m.chatMessages} chat msgs</span>` : ''}
-        <button class="occ-warm-btn" onclick="occWarmModel()" ${occ.warming ? 'disabled' : ''} style="margin-left:auto">${occ.warming ? '<span class="occ-spinner"></span>' : 'Extend'}</button>
-        <button class="btn" onclick="occUnloadModel()" style="font-size:11px;padding:5px 12px;border-color:var(--red);color:var(--red)">Unload</button>
-      </div>
-      <div class="occ-metrics">
-        <div class="occ-metric"><span class="occ-metric-label">GPU</span><span class="occ-metric-value">${m.gpuPct || 0}%</span></div>
-        <div class="occ-metric"><span class="occ-metric-label">CPU</span><span class="occ-metric-value">${m.cpuPct || 0}%</span></div>
-        <div class="occ-metric"><span class="occ-metric-label">VRAM</span><span class="occ-metric-value">${m.vramMB ? m.vramMB + ' MB' : '—'}</span></div>
-        <div class="occ-metric"><span class="occ-metric-label">Total</span><span class="occ-metric-value">${m.sizeMB ? m.sizeMB + ' MB' : '—'}</span></div>
-        <div class="occ-metric"><span class="occ-metric-label">Context</span><span class="occ-metric-value">${m.configuredCtx ? (m.configuredCtx / 1000).toFixed(0) + 'K' : '—'}${m.contextLength ? ' / ' + (m.contextLength / 1000).toFixed(0) + 'K' : ''}</span></div>
-        <div class="occ-metric"><span class="occ-metric-label">Quant</span><span class="occ-metric-value">${m.quantization ? esc(m.quantization) : '—'}</span></div>
-        <div class="occ-metric"><span class="occ-metric-label">Params</span><span class="occ-metric-value">${m.parameterSize ? esc(m.parameterSize) : '—'}</span></div>
+    const ctxStr = m.contextLength ? `${(m.contextLength / 1024).toFixed(0)}K` : '—';
+    const loadedCtxStr = m.loadedWithCtx ? `${(m.loadedWithCtx / 1024).toFixed(0)}K` : null;
+    const badges = [];
+    if (m.loadedBy === 'ocdash') badges.push('<span class="occ-badge ocdash">OCDash</span>');
+    else badges.push('<span class="occ-badge external">External</span>');
+    if (m.isConfigured) badges.push('<span class="occ-badge configured">Selected</span>');
+    const busyKey = `loaded:${m.name}`;
+    const isBusy = occ.busyModels && occ.busyModels[busyKey];
+
+    return `
+      <div class="occ-loaded-card">
+        <div class="occ-loaded-card-head">
+          <span class="occ-loaded-name">${esc(m.name)}</span>
+          ${badges.join(' ')}
+          <span class="occ-model-detail">Unloads in</span>
+          <span class="occ-model-countdown ${expiring ? 'expiring' : ''}">${timeStr}</span>
+          <div class="occ-loaded-actions">
+            <button class="occ-mini-btn" onclick="occExtendModel('${esc(m.name)}')" ${isBusy ? 'disabled' : ''} title="Refresh keep_alive without re-spinning">${isBusy ? '…' : 'Extend'}</button>
+            <button class="occ-mini-btn danger" onclick="occUnloadModel('${esc(m.name)}')" ${isBusy ? 'disabled' : ''} title="Force-unload from Ollama">Unload</button>
+          </div>
+        </div>
+        <div class="occ-metrics">
+          <div class="occ-metric"><span class="occ-metric-label">GPU</span><span class="occ-metric-value">${m.gpuPct || 0}%</span></div>
+          <div class="occ-metric"><span class="occ-metric-label">CPU</span><span class="occ-metric-value">${m.cpuPct || 0}%</span></div>
+          <div class="occ-metric"><span class="occ-metric-label">VRAM</span><span class="occ-metric-value">${m.vramMB ? m.vramMB + ' MB' : '—'}</span></div>
+          <div class="occ-metric"><span class="occ-metric-label">Total</span><span class="occ-metric-value">${m.sizeMB ? m.sizeMB + ' MB' : '—'}</span></div>
+          <div class="occ-metric"><span class="occ-metric-label">Native Ctx</span><span class="occ-metric-value">${ctxStr}</span></div>
+          ${loadedCtxStr ? `<div class="occ-metric"><span class="occ-metric-label">Loaded@</span><span class="occ-metric-value">${loadedCtxStr}</span></div>` : ''}
+          <div class="occ-metric"><span class="occ-metric-label">Quant</span><span class="occ-metric-value">${m.quantization ? esc(m.quantization) : '—'}</span></div>
+          <div class="occ-metric"><span class="occ-metric-label">Params</span><span class="occ-metric-value">${m.parameterSize ? esc(m.parameterSize) : '—'}</span></div>
+        </div>
       </div>`;
-  } else {
-    topRow = `
-      <div class="occ-model-indicator"><span class="occ-dot off"></span> Model Not Loaded</div>
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+// Section 2: Launch a Model (dropdown + preview + prime)
+// ─────────────────────────────────────────
+function renderOccLaunchSection() {
+  const el = document.getElementById('occ-launch-panel');
+  if (!el) return;
+
+  const ms = occ.modelStatus;
+  const ceiling = (ms && ms.ceiling) || 75776;
+  const preview = occ.ctxPreview;
+
+  // Format with one decimal so 73728 (72*1024) shows as ~72K, 75776 as ~74K
+  const fmtK = (n) => n ? (n / 1024).toFixed(0) + 'K' : '?';
+
+  let previewHTML = '<span class="occ-ctx-preview">Loading…</span>';
+  if (preview) {
+    const ctxK = fmtK(preview.requestedCtx);
+    const nativeK = fmtK(preview.nativeCtx);
+    let sourceLabel = 'config';
+    if (preview.source === 'openai-provider') sourceLabel = 'managed by provider';
+    else if (preview.source === 'config') sourceLabel = 'from config';
+    else if (preview.source === 'capped-at-ceiling') sourceLabel = `capped @ ${fmtK(ceiling)}`;
+    else if (preview.source === 'unknown-model') sourceLabel = 'not in config — defaulting to ceiling';
+
+    if (preview.source === 'openai-provider') {
+      previewHTML = `<span class="occ-ctx-preview"><span class="occ-ctx-source">${sourceLabel}</span></span>`;
+    } else {
+      previewHTML = `<span class="occ-ctx-preview"><strong>${ctxK}</strong> <span class="occ-ctx-source">${sourceLabel}</span> · native ${nativeK}</span>`;
+    }
+  }
+
+  el.innerHTML = `
+    <div class="occ-launch-row">
+      <span class="occ-launch-label">Model</span>
       ${occModelDropdownHTML()}
-      <span class="occ-model-detail" style="color:var(--text-dim)">Cold start ~60s</span>
-      <button class="occ-warm-btn" onclick="occWarmModel()" ${occ.warming ? 'disabled' : ''} style="margin-left:auto">${occ.warming ? '<span class="occ-spinner"></span> Warming up...' : 'Prime the Pump'}</button>`;
-  }
-
-  // All loaded models panel
-  const allModels = m.allLoadedModels || [];
-  let modelsHTML = '';
-  if (allModels.length > 0) {
-    const configName = (m.model || '').toLowerCase();
-    const rows = allModels.map(lm => {
-      const nameLC = (lm.name || '').toLowerCase();
-      const isOurs = nameLC === configName || nameLC.startsWith(configName + ':') || nameLC === configName + ':latest';
-      const remaining = lm.remainingSec || 0;
-      const timeStr = formatCountdown(remaining);
-      const expiring = remaining < 300;
-      const memStr = lm.vramMB ? `${lm.vramMB} MB VRAM` : (lm.sizeMB ? `${lm.sizeMB} MB` : '');
-      return `
-        <div class="occ-loaded-model-row">
-          <span class="occ-lm-name ${isOurs ? 'is-ours' : ''}">${esc(lm.name)}${isOurs ? ' ◀' : ''}</span>
-          ${memStr ? `<span class="occ-lm-meta">${memStr}</span>` : ''}
-          <span class="occ-lm-timer" style="color:var(--${expiring ? 'red' : 'yellow'})">${timeStr}</span>
-        </div>`;
-    }).join('');
-    modelsHTML = `
-      <div class="occ-loaded-models">
-        <div class="occ-loaded-models-label">All loaded models (ollama ps)</div>
-        ${rows}
-      </div>`;
-  } else {
-    modelsHTML = `
-      <div class="occ-loaded-models">
-        <div class="occ-loaded-models-label">All loaded models (ollama ps)</div>
-        <div style="font-size:11px;color:var(--text-dim);padding:4px 0">No models currently loaded.</div>
-      </div>`;
-  }
-
-  el.innerHTML = topRow + modelsHTML;
+      <span class="occ-launch-label">Will request</span>
+      ${previewHTML}
+      <button class="occ-warm-btn" onclick="occPrimeModel()" ${occ.warming ? 'disabled' : ''} style="margin-left:auto">
+        ${occ.warming ? '<span class="occ-spinner"></span> Warming…' : 'Prime the Pump'}
+      </button>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);padding:0 2px">
+      Ceiling: ${fmtK(ceiling)} (from <code>local/openclaw.config.json</code> → <code>llm.ceiling</code>). Dropdown is JSON-driven from <code>llm.models</code>.
+    </div>`;
 }
 
 function occModelDropdownHTML() {
   const models = occ.availableModels;
-  const active = occ.activeModel || (occ.modelStatus && occ.modelStatus.model) || '';
+  const ms = occ.modelStatus;
+  const active = (ms && ms.configuredModel) || occ.activeModel || '';
   if (!models.length) {
     return `<span class="occ-model-detail">${esc(active)}</span>`;
   }
   const opts = models.map(m => {
     const sel = m.name === active ? 'selected' : '';
-    const label = m.parameterSize ? `${m.name} (${m.parameterSize})` : m.name;
-    return `<option value="${esc(m.name)}" ${sel}>${esc(label)}</option>`;
+    const ctxStr = m.numCtx ? ` · ${(m.numCtx / 1024).toFixed(0)}K` : '';
+    const sizeStr = m.parameterSize ? ` (${m.parameterSize})` : '';
+    const statusStr = m.available === false
+      ? (m.provider && m.provider !== 'ollama' ? ' [OFFLINE]' : ' [MISSING]')
+      : '';
+    const providerTag = m.provider && m.provider !== 'ollama' ? ' [MLX]' : '';
+    const display = m.label || m.name;
+    return `<option value="${esc(m.name)}" ${sel}>${esc(display + sizeStr + ctxStr + providerTag + statusStr)}</option>`;
   }).join('');
   return `<select class="occ-model-select" onchange="occSwitchModel(this.value)" ${occ.switchingModel ? 'disabled' : ''}>${opts}</select>`;
 }
@@ -2360,10 +2626,20 @@ async function occFetchModels() {
   }
 }
 
+async function occFetchCtxPreview(modelName) {
+  if (!modelName) { occ.ctxPreview = null; return; }
+  try {
+    const data = await api('GET', '/oc-control/preview-ctx?model=' + encodeURIComponent(modelName));
+    occ.ctxPreview = data;
+  } catch (_) {
+    occ.ctxPreview = null;
+  }
+}
+
 async function occSwitchModel(model) {
   if (!model || occ.switchingModel) return;
   occ.switchingModel = true;
-  renderOccModelBar();
+  renderOccLaunchSection();
   try {
     const data = await api('POST', '/oc-control/switch-model', { model });
     occ.activeModel = data.activeModel;
@@ -2373,15 +2649,19 @@ async function occSwitchModel(model) {
     showToast('Switch failed: ' + e.message);
   }
   occ.switchingModel = false;
+  await occFetchCtxPreview(model);
   await occPollModelStatus();
   renderOccChat();
 }
 
-async function occWarmModel() {
+// Prime button — warms the currently selected model
+async function occPrimeModel() {
   occ.warming = true;
-  renderOccModelBar();
+  renderOccLaunchSection();
   try {
-    await api('POST', '/oc-control/warm', {});
+    const ms = occ.modelStatus;
+    const target = (ms && ms.configuredModel) || occ.activeModel;
+    await api('POST', '/oc-control/warm', target ? { model: target } : {});
     showToast('Model loaded and warm');
   } catch (e) {
     showToast('Warm-up failed: ' + e.message);
@@ -2390,14 +2670,38 @@ async function occWarmModel() {
   await occPollModelStatus();
 }
 
-async function occUnloadModel() {
+// Per-loaded-model Extend button — refreshes keep_alive without re-spin
+async function occExtendModel(modelName) {
+  if (!occ.busyModels) occ.busyModels = {};
+  occ.busyModels['loaded:' + modelName] = true;
+  renderOccLoadedSection();
   try {
-    await api('POST', '/oc-control/unload', {});
-    occ.chatMessages = [];
-    showToast('Model unloaded');
+    await api('POST', '/oc-control/extend', { model: modelName });
+    showToast('Extended ' + modelName);
+  } catch (e) {
+    showToast('Extend failed: ' + e.message);
+  }
+  delete occ.busyModels['loaded:' + modelName];
+  await occPollModelStatus();
+}
+
+// Per-loaded-model Unload button — force-unload from Ollama
+async function occUnloadModel(modelName) {
+  if (!occ.busyModels) occ.busyModels = {};
+  occ.busyModels['loaded:' + modelName] = true;
+  renderOccLoadedSection();
+  try {
+    await api('POST', '/oc-control/unload', modelName ? { model: modelName } : {});
+    // Only clear chat if we unloaded the configured model
+    const ms = occ.modelStatus;
+    if (ms && ms.configuredModel === modelName) {
+      occ.chatMessages = [];
+    }
+    showToast('Unloaded ' + (modelName || 'model'));
   } catch (e) {
     showToast('Unload failed: ' + e.message);
   }
+  delete occ.busyModels['loaded:' + modelName];
   await occPollModelStatus();
   renderOccChat();
 }

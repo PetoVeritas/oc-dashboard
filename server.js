@@ -2,8 +2,19 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { randomBytes } = require('crypto');
 const { execFile } = require('child_process');
+
+// Promise wrapper for execFile (used by system-memory and process listing)
+function execFileP(cmd, args = [], opts = {}) {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { maxBuffer: 5 * 1024 * 1024, ...opts }, (err, stdout, stderr) => {
+      if (err) reject(err);
+      else resolve({ stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
 
 // ── Config ──
 const PORT = 3001;
@@ -23,7 +34,8 @@ const LLM_DEFAULTS = {
   baseUrl: 'http://localhost:11434',
   model: 'gemma3',
   timeoutMs: 90000,
-  numCtx: 96000,
+  ceiling: 75776,
+  models: {}, // map of modelName → { numCtx, label? }
 };
 
 const OC_CONTROL_DEFAULTS = {
@@ -686,132 +698,267 @@ function ollamaRequest(method, urlPath, payload) {
   });
 }
 
+// Generic HTTP JSON request — works with any base URL (for non-Ollama providers)
+function httpJsonRequest(method, fullUrl, payload, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(fullUrl);
+    const transport = urlObj.protocol === 'https:' ? https : http;
+    const reqOpts = {
+      hostname: urlObj.hostname,
+      port: urlObj.port,
+      path: urlObj.pathname + urlObj.search,
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      timeout: timeoutMs,
+    };
+    const request = transport.request(reqOpts, (resp) => {
+      let body = '';
+      resp.on('data', chunk => body += chunk);
+      resp.on('end', () => {
+        try { resolve(JSON.parse(body)); }
+        catch (_) { resolve({ _raw: body }); }
+      });
+    });
+    request.on('timeout', () => { request.destroy(); reject(new Error('Request timed out: ' + fullUrl)); });
+    request.on('error', (e) => reject(new Error('Connection failed: ' + e.message)));
+    if (payload) {
+      const data = JSON.stringify(payload);
+      request.setHeader('Content-Length', Buffer.byteLength(data));
+      request.write(data);
+    }
+    request.end();
+  });
+}
+
 // In-memory chat session
 let chatSession = {
   messages: [],
   model: null,
 };
 
-// GET /api/oc-control/model-status — Check if the configured model is loaded in Ollama
+// Tracks num_ctx we last asked Ollama to load each model with.
+// Used so Extend can refresh keep_alive without triggering a re-spin.
+const loadedCtxMap = new Map();
+
+// Fetch a model's native context_length from /api/show, cached in ctxCache.
+async function fetchNativeContext(modelName) {
+  if (ctxCache.has(modelName)) {
+    const v = ctxCache.get(modelName);
+    return (v && v > 0) ? v : null;
+  }
+  try {
+    const showData = await ollamaRequest('POST', '/api/show', { name: modelName });
+    const info = showData.model_info || {};
+    for (const key of Object.keys(info)) {
+      if (key.endsWith('.context_length') || key === 'context_length') {
+        const v = info[key];
+        if (typeof v === 'number' && v > 0) {
+          ctxCache.set(modelName, v);
+          return v;
+        }
+      }
+    }
+  } catch (_) { /* swallow */ }
+  ctxCache.set(modelName, null);
+  return null;
+}
+
+// GET /api/oc-control/model-status — Returns pure ollama ps mirror + OCDash's configured intent
 async function handleModelStatus(req, res) {
   try {
-    const psData = await ollamaRequest('GET', '/api/ps');
+    const psData = await ollamaRequest('GET', '/api/ps').catch(() => ({ models: [] }));
     const models = psData.models || [];
     const configModel = config.llm.model;
+    const ceiling = config.llm.ceiling || 75776;
     const now = new Date();
 
-    // Build a summary of ALL loaded models
-    const allLoaded = models.map(m => {
+    // Enrich each loaded Ollama model with /api/show metadata (native ctx + details)
+    const loadedModels = await Promise.all(models.map(async (m) => {
       const expiresAt = m.expires_at ? new Date(m.expires_at) : null;
       const remainingMs = expiresAt ? Math.max(0, expiresAt.getTime() - now.getTime()) : null;
-      const sizeMB = m.size ? Math.round(m.size / 1024 / 1024) : null;
-      const vramMB = m.size_vram ? Math.round(m.size_vram / 1024 / 1024) : null;
-      return {
-        name: m.name || 'unknown',
-        sizeMB,
-        vramMB,
-        expiresAt: m.expires_at || null,
-        remainingMs,
-        remainingSec: remainingMs !== null ? Math.round(remainingMs / 1000) : null,
-      };
-    });
-
-    // Find our configured model in the running list
-    const match = models.find(m => {
-      const name = (m.name || '').toLowerCase();
-      const target = configModel.toLowerCase();
-      return name === target || name.startsWith(target + ':') || name === target + ':latest';
-    });
-
-    if (match) {
-      const expiresAt = match.expires_at ? new Date(match.expires_at) : null;
-      const remainingMs = expiresAt ? Math.max(0, expiresAt.getTime() - now.getTime()) : null;
-      const totalBytes = match.size || 0;
-      const vramBytes = match.size_vram || 0;
-      const cpuBytes = totalBytes - vramBytes;
+      const totalBytes = m.size || 0;
+      const vramBytes = m.size_vram || 0;
       const gpuPct = totalBytes > 0 ? Math.round((vramBytes / totalBytes) * 100) : 0;
       const cpuPct = totalBytes > 0 ? 100 - gpuPct : 0;
-      const details = match.details || {};
+      const details = m.details || {};
+      const contextLength = await fetchNativeContext(m.name);
 
-      // Fetch running context size from /api/show
-      let contextLength = null;
-      try {
-        const showData = await ollamaRequest('POST', '/api/show', { name: match.name });
-        const modelInfo = showData.model_info || {};
-        // Look for context length in model_info keys
-        for (const key of Object.keys(modelInfo)) {
-          if (key.includes('context_length')) {
-            contextLength = modelInfo[key];
-            break;
-          }
-        }
-      } catch (_) { /* leave null */ }
+      // Did OCDash itself load this one? (for the "OCDash" badge)
+      const loadedBy = loadedCtxMap.has(m.name) ? 'ocdash' : 'external';
+      const loadedWithCtx = loadedCtxMap.get(m.name) || null;
 
-      sendJSON(res, 200, {
-        loaded: true,
-        model: match.name,
-        size: totalBytes,
-        sizeVram: vramBytes,
+      // Is this the currently "configured" model in OCDash?
+      const nameLC = (m.name || '').toLowerCase();
+      const cfgLC = (configModel || '').toLowerCase();
+      const isConfigured = nameLC === cfgLC ||
+                           nameLC === cfgLC + ':latest' ||
+                           nameLC.startsWith(cfgLC + ':');
+
+      return {
+        name: m.name || 'unknown',
+        provider: 'ollama',
         sizeMB: Math.round(totalBytes / 1024 / 1024),
         vramMB: Math.round(vramBytes / 1024 / 1024),
-        cpuMB: Math.round(cpuBytes / 1024 / 1024),
         gpuPct,
         cpuPct,
         contextLength,
-        configuredCtx: resolveNumCtx(),
         quantization: details.quantization_level || null,
         family: details.family || null,
         parameterSize: details.parameter_size || null,
-        expiresAt: match.expires_at || null,
+        expiresAt: m.expires_at || null,
         remainingMs,
         remainingSec: remainingMs !== null ? Math.round(remainingMs / 1000) : null,
-        chatMessages: chatSession.messages.length,
-        allLoadedModels: allLoaded,
-      });
-    } else {
-      sendJSON(res, 200, {
-        loaded: false,
-        model: configModel,
+        loadedBy,
+        loadedWithCtx,
+        isConfigured,
+      };
+    }));
+
+    // Check OpenAI-compatible providers (e.g. MLX local service)
+    // /v1/models = model is configured/exposed (not proof it's in RAM)
+    // /admin/stats = actual worker load state (worker.state, worker.loaded, worker.pid)
+    // /ready = hot vs cold-load readiness
+    const configuredModels = config.llm.models || {};
+    for (const [name, entry] of Object.entries(configuredModels)) {
+      if (entry.provider !== 'openai' || !entry.baseUrl) continue;
+      // Derive root URL by stripping /v1 suffix for admin endpoints
+      const rootUrl = entry.baseUrl.replace(/\/v1\/?$/, '');
+      let serviceAlive = false;
+      let remoteModelId = null;
+      let workerState = null;   // e.g. 'ready', 'not_loaded'
+      let workerLoaded = false;
+      let workerPid = null;
+      let readyState = null;    // e.g. 'actively_ready', 'cold_load_acceptable'
+      let adminStats = null;
+
+      // 1. Check /v1/models — is the supervisor/service running and model configured?
+      try {
+        const modelsData = await httpJsonRequest('GET', entry.baseUrl + '/models', null, 5000);
+        const remoteModels = (modelsData.data || []);
+        if (remoteModels.length > 0) {
+          serviceAlive = true;
+          remoteModelId = remoteModels[0].id || null;
+        }
+      } catch (_) { /* service not reachable */ }
+
+      if (!serviceAlive) continue; // supervisor not running — skip entirely
+
+      // 2. Check /admin/stats — actual worker load state
+      try {
+        adminStats = await httpJsonRequest('GET', rootUrl + '/admin/stats', null, 5000);
+        const worker = adminStats.worker || adminStats;
+        workerState = worker.state || null;
+        workerLoaded = !!worker.loaded;
+        workerPid = worker.pid || null;
+      } catch (_) { /* admin endpoint not available */ }
+
+      // 3. Check /ready — hot vs cold readiness + idle countdown
+      let idleSeconds = null;
+      let idleUnloadThresholdS = null;
+      let idleUnloadEnabled = false;
+      try {
+        const readyData = await httpJsonRequest('GET', rootUrl + '/ready', null, 5000);
+        readyState = readyData.status || readyData.state || (typeof readyData === 'string' ? readyData : null);
+        const rw = readyData.worker || {};
+        idleSeconds = typeof rw.idle_seconds === 'number' ? rw.idle_seconds : null;
+        idleUnloadThresholdS = typeof rw.idle_unload_threshold_s === 'number' ? rw.idle_unload_threshold_s : null;
+        idleUnloadEnabled = !!rw.idle_unload_enabled;
+      } catch (_) { /* ready endpoint not available */ }
+
+      const nameLC = name.toLowerCase();
+      const cfgLC = (configModel || '').toLowerCase();
+      const isConfigured = nameLC === cfgLC;
+
+      loadedModels.push({
+        name,
+        provider: 'openai',
+        label: entry.label || name,
+        baseUrl: entry.baseUrl,
+        sizeMB: null,
+        vramMB: null,
+        gpuPct: null,
+        cpuPct: null,
+        contextLength: null,
+        quantization: null,
+        family: null,
+        parameterSize: null,
         expiresAt: null,
         remainingMs: null,
         remainingSec: null,
-        chatMessages: chatSession.messages.length,
-        allLoadedModels: allLoaded,
+        loadedBy: 'external',
+        loadedWithCtx: null,
+        isConfigured,
+        remoteModelId,
+        // MLX-specific worker state
+        serviceAlive,
+        workerState,
+        workerLoaded,
+        workerPid,
+        readyState,
+        // Idle countdown (from /ready)
+        idleSeconds,
+        idleUnloadThresholdS,
+        idleUnloadEnabled,
+        idleRemainingSec: (idleUnloadEnabled && idleUnloadThresholdS != null && idleSeconds != null && workerLoaded)
+          ? Math.max(0, idleUnloadThresholdS - idleSeconds)
+          : null,
       });
     }
+
+    // Compute what num_ctx OCDash WOULD send for the currently configured model
+    const configuredCtx = resolveNumCtx(configModel);
+
+    sendJSON(res, 200, {
+      loadedModels,
+      configuredModel: configModel,
+      configuredCtx,
+      ceiling,
+      chatMessages: chatSession.messages.length,
+    });
   } catch (e) {
-    sendJSON(res, 502, { error: e.message, loaded: false, allLoadedModels: [] });
+    sendJSON(res, 502, { error: e.message, loadedModels: [] });
   }
 }
 
-// Resolve the correct num_ctx for the active model.
-// Models with an explicit context hint in the name (e.g. "-48k") get that value;
-// everything else falls back to the configured default (96000).
-function resolveNumCtx() {
-  const model = (config.llm.model || '').toLowerCase();
-  const ctxMatch = model.match(/(\d+)k\b/);
-  if (ctxMatch) return parseInt(ctxMatch[1], 10) * 1000;
-  return config.llm.numCtx || 96000;
+// Resolve num_ctx for a given model — purely JSON-driven.
+// Reads config.llm.models[name].numCtx and caps at config.llm.ceiling.
+// No regex, no /api/show lookups. Ollama is reality; JSON is intent.
+const ctxCache = new Map(); // still used by fetchNativeContext() for UI display only
+
+function resolveNumCtx(modelName = null) {
+  modelName = modelName || config.llm.model || '';
+  const ceiling = config.llm.ceiling || 75776;
+  const entry = (config.llm.models || {})[modelName];
+  if (entry && typeof entry.numCtx === 'number' && entry.numCtx > 0) {
+    return Math.min(entry.numCtx, ceiling);
+  }
+  // Model not declared in config.llm.models — fall back to ceiling (conservative)
+  return ceiling;
 }
 
 // POST /api/oc-control/warm — Prime the model by sending a trivial request with a long keep_alive
 async function handleWarmModel(req, res) {
   try {
+    const body = await readBody(req).catch(() => ({}));
+    const targetModel = (body && body.model) || config.llm.model;
     const keepAlive = '30m';
-    const numCtx = resolveNumCtx();
+    const numCtx = resolveNumCtx(targetModel);
 
-    // Load the model with the full context window to match OpenClaw's footprint
+    // Load the model with the resolved context window
     const result = await ollamaRequest('POST', '/api/generate', {
-      model: config.llm.model,
+      model: targetModel,
       prompt: 'Respond with the single word: ready',
       stream: false,
       keep_alive: keepAlive,
       options: { num_predict: 5, num_ctx: numCtx },
     });
 
+    // Remember what ctx we loaded it with so Extend can safely refresh
+    loadedCtxMap.set(targetModel, numCtx);
+
     sendJSON(res, 200, {
       status: 'warm',
-      model: config.llm.model,
+      model: targetModel,
       keepAlive,
       numCtx,
       response: ((result.response || '')).trim(),
@@ -821,20 +968,225 @@ async function handleWarmModel(req, res) {
   }
 }
 
-// POST /api/oc-control/unload — Force-unload the model from Ollama
-async function handleUnloadModel(req, res) {
+// POST /api/oc-control/extend — Refresh keep_alive for an already-loaded model without re-spin
+async function handleExtendModel(req, res) {
   try {
+    const body = await readBody(req).catch(() => ({}));
+    const targetModel = (body && body.model) || config.llm.model;
+    const keepAlive = '30m';
+    // Reuse the num_ctx we loaded it with to avoid triggering a re-spin.
+    // If OCDash didn't load it, fall back to whatever the JSON map says.
+    let numCtx = loadedCtxMap.get(targetModel);
+    if (!numCtx) {
+      numCtx = resolveNumCtx(targetModel);
+    }
+
     await ollamaRequest('POST', '/api/generate', {
-      model: config.llm.model,
-      prompt: '',
+      model: targetModel,
+      prompt: '.',
       stream: false,
-      keep_alive: '0',
+      keep_alive: keepAlive,
+      options: { num_predict: 1, num_ctx: numCtx },
     });
-    // Clear chat session since model context is gone
-    chatSession = { messages: [], model: config.llm.model };
-    sendJSON(res, 200, { status: 'unloaded', model: config.llm.model });
+
+    loadedCtxMap.set(targetModel, numCtx);
+
+    sendJSON(res, 200, {
+      status: 'extended',
+      model: targetModel,
+      keepAlive,
+      numCtx,
+    });
   } catch (e) {
     sendJSON(res, 502, { error: e.message });
+  }
+}
+
+// POST /api/oc-control/unload — Force-unload a model (Ollama or OpenAI-compatible provider)
+async function handleUnloadModel(req, res) {
+  try {
+    const body = await readBody(req).catch(() => ({}));
+    const targetModel = (body && body.model) || config.llm.model;
+    const entry = (config.llm.models || {})[targetModel];
+
+    if (entry && entry.provider === 'openai' && entry.baseUrl) {
+      // OpenAI-compatible provider (e.g. MLX) — use admin unload endpoint
+      const rootUrl = entry.baseUrl.replace(/\/v1\/?$/, '');
+      const result = await httpJsonRequest('POST', rootUrl + '/admin/worker/unload', null, 10000);
+      sendJSON(res, 200, { status: 'unloaded', model: targetModel, provider: 'openai', result });
+    } else {
+      // Ollama provider — set keep_alive to 0
+      await ollamaRequest('POST', '/api/generate', {
+        model: targetModel,
+        prompt: '',
+        stream: false,
+        keep_alive: '0',
+      });
+      loadedCtxMap.delete(targetModel);
+      // Clear chat session only if we unloaded the currently-configured model
+      if (targetModel === config.llm.model) {
+        chatSession = { messages: [], model: config.llm.model };
+      }
+      sendJSON(res, 200, { status: 'unloaded', model: targetModel, provider: 'ollama' });
+    }
+  } catch (e) {
+    sendJSON(res, 502, { error: e.message });
+  }
+}
+
+// GET /api/oc-control/preview-ctx?model=X — Show what num_ctx OCDash would request for a given model
+async function handlePreviewCtx(req, res) {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const modelName = url.searchParams.get('model') || config.llm.model;
+  const ceiling = config.llm.ceiling || 75776;
+  const entry = (config.llm.models || {})[modelName];
+
+  let requestedCtx, source;
+  if (entry && entry.provider === 'openai') {
+    // OpenAI-compatible providers manage their own context — numCtx not applicable
+    requestedCtx = null;
+    source = 'openai-provider';
+  } else if (entry && typeof entry.numCtx === 'number' && entry.numCtx > 0) {
+    if (entry.numCtx > ceiling) {
+      requestedCtx = ceiling;
+      source = 'capped-at-ceiling';
+    } else {
+      requestedCtx = entry.numCtx;
+      source = 'config';
+    }
+  } else {
+    requestedCtx = ceiling;
+    source = 'unknown-model';
+  }
+
+  // Native context is informational only — shown on the loaded card, not used for load decisions
+  const nativeCtx = await fetchNativeContext(modelName);
+
+  sendJSON(res, 200, {
+    model: modelName,
+    requestedCtx,
+    nativeCtx,
+    ceiling,
+    source,
+    label: (entry && entry.label) || null,
+  });
+}
+
+// ── System memory + large process listing ──
+// Generic observability: shows what's actually using your machine,
+// including non-Ollama LLM processes (e.g. a custom llama.cpp fork) that OCDash
+// otherwise has no knowledge of. Mac-specific (vm_stat, sysctl, ps).
+
+async function getSystemMemory() {
+  try {
+    const [vmStat, hwMem, swap] = await Promise.all([
+      execFileP('vm_stat').then(r => r.stdout).catch(() => ''),
+      execFileP('sysctl', ['-n', 'hw.memsize']).then(r => r.stdout).catch(() => '0'),
+      execFileP('sysctl', ['-n', 'vm.swapusage']).then(r => r.stdout).catch(() => ''),
+    ]);
+
+    // Page size: read from vm_stat header so we work on both Apple Silicon (16K) and Intel (4K)
+    const pageSizeMatch = vmStat.match(/page size of (\d+) bytes/);
+    const pageSize = pageSizeMatch ? parseInt(pageSizeMatch[1], 10) : 16384;
+
+    const pages = (label) => {
+      const m = vmStat.match(new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':\\s+(\\d+)'));
+      return m ? parseInt(m[1], 10) * pageSize : 0;
+    };
+
+    const totalBytes = parseInt((hwMem || '0').trim(), 10) || 0;
+    const wiredBytes = pages('Pages wired down');
+    const activeBytes = pages('Pages active');
+    const inactiveBytes = pages('Pages inactive');
+    const compressedBytes = pages('Pages occupied by compressor');
+    const freeBytes = pages('Pages free') + pages('Pages speculative');
+    // "Memory used" matches what Activity Monitor reports
+    const usedBytes = wiredBytes + activeBytes + compressedBytes;
+
+    // Swap: "vm.swapusage: total = 2048.00M  used = 102.50M  free = 1945.50M  (encrypted)"
+    let swapUsedMB = 0, swapTotalMB = 0;
+    const swapUsedM = swap.match(/used\s*=\s*([\d.]+)M/);
+    const swapTotalM = swap.match(/total\s*=\s*([\d.]+)M/);
+    if (swapUsedM) swapUsedMB = parseFloat(swapUsedM[1]);
+    if (swapTotalM) swapTotalMB = parseFloat(swapTotalM[1]);
+
+    const toMB = (b) => Math.round(b / 1024 / 1024);
+    return {
+      totalMB: toMB(totalBytes),
+      usedMB: toMB(usedBytes),
+      wiredMB: toMB(wiredBytes),
+      activeMB: toMB(activeBytes),
+      inactiveMB: toMB(inactiveBytes),
+      compressedMB: toMB(compressedBytes),
+      freeMB: toMB(freeBytes),
+      swapUsedMB,
+      swapTotalMB,
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+// macOS system processes/users to filter out so the list highlights actual user/inference apps
+const SYSTEM_USERS = new Set(['root', 'daemon', 'nobody']);
+const SYSTEM_COMMS = new Set([
+  'WindowServer', 'loginwindow', 'Dock', 'Finder', 'SystemUIServer', 'launchd',
+  'kernel_task', 'mds', 'mds_stores', 'corespotlightd', 'mdworker', 'mdworker_shared',
+  'cloudd', 'syncdefaultsd', 'sharingd', 'nsurlsessiond', 'bird', 'parsecd',
+  'CoreServicesUIAgent', 'TextInputMenuAgent', 'iconservicesagent', 'photoanalysisd',
+  'mediaanalysisd', 'powerd', 'hidd', 'distnoted', 'opendirectoryd', 'syslogd',
+]);
+
+async function getLargeProcesses(thresholdMB = 2560) {
+  try {
+    // ps -axo with trailing '=' suppresses headers; we get raw rows.
+    // pid, rss (KB), user, comm. comm is last so we capture full path with spaces.
+    const { stdout } = await execFileP('ps', ['-axo', 'pid=,rss=,user=,comm=']);
+    const lines = stdout.split('\n').filter(Boolean);
+
+    const procs = lines.map(line => {
+      // Right-justified columns; comm can contain spaces (e.g. ".../Google Chrome Helper")
+      const m = line.match(/^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/);
+      if (!m) return null;
+      const pid = parseInt(m[1], 10);
+      const rssKB = parseInt(m[2], 10);
+      const user = m[3];
+      const comm = m[4].trim();
+      return { pid, rssMB: Math.round(rssKB / 1024), user, comm };
+    }).filter(Boolean);
+
+    const isSystem = (p) => {
+      if (SYSTEM_USERS.has(p.user)) return true;
+      if (p.user.startsWith('_')) return true; // _coreaudiod, _windowserver, etc.
+      const base = p.comm.split('/').pop();
+      if (SYSTEM_COMMS.has(base)) return true;
+      return false;
+    };
+
+    // Skip Ollama-managed processes — they're already shown in the Ollama section
+    const isOllama = (p) => /\bollama/i.test(p.comm);
+
+    return procs
+      .filter(p => p.rssMB >= thresholdMB)
+      .filter(p => !isSystem(p))
+      .filter(p => !isOllama(p))
+      .sort((a, b) => b.rssMB - a.rssMB)
+      .slice(0, 10);
+  } catch (e) {
+    return [];
+  }
+}
+
+// GET /api/oc-control/system-memory — Mac RAM stats + non-system processes >2.5 GB
+async function handleSystemMemory(req, res) {
+  try {
+    const [memory, processes] = await Promise.all([
+      getSystemMemory(),
+      getLargeProcesses(2560),
+    ]);
+    sendJSON(res, 200, { memory, processes, thresholdMB: 2560, currentUser: os.userInfo().username });
+  } catch (e) {
+    sendJSON(res, 500, { error: e.message });
   }
 }
 
@@ -891,21 +1243,75 @@ function handleChatHistory(req, res) {
   });
 }
 
-// GET /api/oc-control/models — List all locally available Ollama models
+// GET /api/oc-control/models — List models from config.llm.models, cross-referenced with their provider
+// Returns ONLY what's declared in JSON. The dropdown is JSON-driven, not provider-driven.
 async function handleListModels(req, res) {
   try {
-    const tagsData = await ollamaRequest('GET', '/api/tags');
-    const models = (tagsData.models || []).map(m => ({
-      name: m.name,
-      size: m.size || null,
-      sizeMB: m.size ? Math.round(m.size / 1024 / 1024) : null,
-      family: (m.details && m.details.family) || null,
-      parameterSize: (m.details && m.details.parameter_size) || null,
-      quantization: (m.details && m.details.quantization_level) || null,
+    const tagsData = await ollamaRequest('GET', '/api/tags').catch(() => ({ models: [] }));
+    const ollamaTagMap = new Map((tagsData.models || []).map(m => [m.name, m]));
+
+    const configuredModels = config.llm.models || {};
+    const ceiling = config.llm.ceiling || 75776;
+
+    // Collect unique OpenAI-compatible base URLs so we can health-check each once
+    const openaiBaseUrls = new Set();
+    for (const entry of Object.values(configuredModels)) {
+      if (entry.provider === 'openai' && entry.baseUrl) openaiBaseUrls.add(entry.baseUrl);
+    }
+    // Check reachability for each OpenAI-compatible endpoint
+    const openaiReachable = new Map();
+    await Promise.all([...openaiBaseUrls].map(async (baseUrl) => {
+      try {
+        const data = await httpJsonRequest('GET', baseUrl + '/models', null, 5000);
+        openaiReachable.set(baseUrl, { reachable: true, models: (data.data || []).map(m => m.id) });
+      } catch (_) {
+        openaiReachable.set(baseUrl, { reachable: false, models: [] });
+      }
     }));
+
+    const models = Object.keys(configuredModels).map(name => {
+      const entry = configuredModels[name] || {};
+      const provider = entry.provider || 'ollama';
+
+      if (provider === 'openai') {
+        // OpenAI-compatible provider (e.g. MLX local service)
+        const info = openaiReachable.get(entry.baseUrl) || { reachable: false, models: [] };
+        return {
+          name,
+          numCtx: entry.numCtx || null,
+          label: entry.label || null,
+          provider,
+          baseUrl: entry.baseUrl || null,
+          available: info.reachable,
+          size: null,
+          sizeMB: null,
+          family: null,
+          parameterSize: null,
+          quantization: null,
+        };
+      }
+
+      // Default: Ollama provider
+      const raw = ollamaTagMap.get(name) || {};
+      const details = raw.details || {};
+      return {
+        name,
+        numCtx: entry.numCtx || null,
+        label: entry.label || null,
+        provider,
+        available: ollamaTagMap.has(name),
+        size: raw.size || null,
+        sizeMB: raw.size ? Math.round(raw.size / 1024 / 1024) : null,
+        family: details.family || null,
+        parameterSize: details.parameter_size || null,
+        quantization: details.quantization_level || null,
+      };
+    });
+
     sendJSON(res, 200, {
       models,
       activeModel: config.llm.model,
+      ceiling,
     });
   } catch (e) {
     sendJSON(res, 502, { error: e.message });
@@ -921,8 +1327,9 @@ async function handleSwitchModel(req, res) {
   const prev = config.llm.model;
   config.llm.model = model.trim();
   saveConfig();
-  // Clear chat session since the model changed
+  // Clear chat session and context cache since the model changed
   chatSession = { messages: [], model: config.llm.model };
+  ctxCache.clear();
   sendJSON(res, 200, {
     status: 'switched',
     previousModel: prev,
@@ -930,7 +1337,7 @@ async function handleSwitchModel(req, res) {
   });
 }
 
-// GET /api/oc-control/status — Check OC Control config and Ollama reachability
+// GET /api/oc-control/status — Check OC Control config and provider reachability
 async function handleOcControlStatus(req, res) {
   const status = {
     enabled: config.ocControl.enabled,
@@ -938,6 +1345,7 @@ async function handleOcControlStatus(req, res) {
     baseUrl: config.llm.baseUrl,
     allowedActions: config.ocControl.allowedActions,
     ollamaReachable: false,
+    providers: {},
   };
 
   // Quick health check against Ollama
@@ -957,6 +1365,21 @@ async function handleOcControlStatus(req, res) {
       request.on('error', () => resolve());
     });
   } catch (_) { /* leave false */ }
+
+  // Health-check any OpenAI-compatible providers declared in config
+  const configuredModels = config.llm.models || {};
+  const openaiBaseUrls = new Set();
+  for (const entry of Object.values(configuredModels)) {
+    if (entry.provider === 'openai' && entry.baseUrl) openaiBaseUrls.add(entry.baseUrl);
+  }
+  await Promise.all([...openaiBaseUrls].map(async (baseUrl) => {
+    try {
+      await httpJsonRequest('GET', baseUrl + '/models', null, 5000);
+      status.providers[baseUrl] = { type: 'openai', reachable: true };
+    } catch (_) {
+      status.providers[baseUrl] = { type: 'openai', reachable: false };
+    }
+  }));
 
   sendJSON(res, 200, status);
 }
@@ -1051,6 +1474,15 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === '/api/oc-control/unload' && req.method === 'POST') {
       return await handleUnloadModel(req, res);
+    }
+    if (pathname === '/api/oc-control/extend' && req.method === 'POST') {
+      return await handleExtendModel(req, res);
+    }
+    if (pathname === '/api/oc-control/preview-ctx' && req.method === 'GET') {
+      return await handlePreviewCtx(req, res);
+    }
+    if (pathname === '/api/oc-control/system-memory' && req.method === 'GET') {
+      return await handleSystemMemory(req, res);
     }
     if (pathname === '/api/oc-control/plan' && req.method === 'POST') {
       return await handleOcControlPlan(req, res);

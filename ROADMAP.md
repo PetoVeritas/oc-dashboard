@@ -19,6 +19,9 @@ Sortable table view with columns for name, status, priority, progress, component
 ### OC Control — Bounded Decision Engine
 Local Ollama/Gemma integration as a bounded action planner for OpenClaw operations. The model selects from a strict allowlist of pre-approved actions — it never gets shell access or generates arbitrary commands. OCDash validates the model's choice and maps it to an approved local script. Three-step UI flow: describe intent, review chosen action, confirm execution. Allowed actions sidebar populated dynamically from config JSON. Ships with two approved scripts: gateway restart (5s delay, resilient) and gateway stop.
 
+### Multi-Provider Model Management
+OC Control now supports multiple LLM providers beyond Ollama. Models in `llm.models` can declare their own `provider` and `baseUrl` to route to OpenAI-compatible local services (e.g. MLX workers). Per-provider features include: health checks against `/v1/models`, worker load state via `/admin/stats` (state, loaded, pid), idle countdown computed from `/ready` (idle_seconds vs threshold), and an offload button that routes to `POST /admin/worker/unload`. The dashboard renders distinct cards for each provider type — Ollama cards show GPU/CPU split, VRAM, keep_alive countdown, and extend/unload buttons; MLX cards show service status, worker state, readiness, idle countdown, and an offload button. The status bar shows connection dots for each configured provider independently.
+
 ---
 
 ## In Progress

@@ -423,6 +423,7 @@ const RETIC_LEGACY_STATUS_TO_UPGRADE = {
 const RETIC_LEGACY_REVIEW = {
   not_started: 'pending_upgrade_check',
   reviewed: 'still_needed', // generic "reviewed" best-mapped to "still_needed"
+  in_progress: 'pending_upgrade_check', // upgradeStatus value crept into reviewStatus — treat as pending
 };
 
 function _emptyStore() {
@@ -470,6 +471,14 @@ function _migrateItem(item, historyBucket) {
   }
   if (!item.reviewStatus) item.reviewStatus = 'pending_upgrade_check';
 
+  // Semantic-flip fix: `not_reviewed` used to mean "haven't checked yet"
+  // (pre-cycle default). Now it means "intentionally skipped this cycle".
+  // If the item isn't done, an old `not_reviewed` value almost certainly
+  // meant the old default — migrate it to pending_upgrade_check.
+  if (item.reviewStatus === 'not_reviewed' && item.upgradeStatus !== 'complete') {
+    item.reviewStatus = 'pending_upgrade_check';
+  }
+
   // Coerce unknowns to safe defaults so the UI can always render
   if (!RETIC_VALID_CATEGORIES.has(item.category)) item.category = 'watch_item';
   if (!RETIC_VALID_LIFECYCLE.has(item.status)) item.status = 'active';
@@ -490,16 +499,19 @@ function loadReticulatorStore() {
       };
       const extracted = [];
       store.items = store.items.map(i => _migrateItem(i, extracted)).filter(Boolean);
-      // Any extracted upgrade_summary rows become history entries (one-time migration)
+      // Any extracted upgrade_summary rows become history entries (one-time migration).
+      // Preserve the full original item under `legacyItem` so nothing is lost.
       if (extracted.length) {
         for (const entry of extracted) {
           store.history.push({
-            from: entry.item.from || entry.item.title || null,
+            from: entry.item.from || null,
             to: entry.item.to || null,
-            summary: entry.item.summary || entry.item.title || null,
-            migratedFromItem: entry._migratedFromItem,
+            title: entry.item.title || null,
+            summary: entry.item.summary || null,
             status: 'complete',
-            archivedAt: new Date().toISOString(),
+            archivedAt: entry.item.updatedAt || new Date().toISOString(),
+            migratedFromItem: entry._migratedFromItem,
+            legacyItem: entry.item, // full original item preserved
           });
         }
       }
@@ -535,6 +547,13 @@ function handleGetUpgradeItems(req, res) {
 
 async function handleCreateUpgradeItem(req, res) {
   const body = await readBody(req);
+  // Reject deprecated category at the boundary (see RETICULATOR.md).
+  // Cycle records belong on the `upgrade` object / `history` array, not items.
+  if (body.category === 'upgrade_summary') {
+    return sendJSON(res, 400, {
+      error: "Category 'upgrade_summary' is deprecated. Write cycle metadata to the `upgrade` object via PUT /api/upgrade-cycle, and archive past cycles via POST /api/upgrade-cycle/start.",
+    });
+  }
   const now = new Date().toISOString();
   const item = {
     id: 'ur_' + randomBytes(4).toString('hex'),
@@ -578,6 +597,12 @@ async function handleUpdateUpgradeItem(req, res, id) {
   if (idx === -1) return sendJSON(res, 404, { error: 'Item not found' });
 
   const updates = await readBody(req);
+  // Reject attempts to retag items into the deprecated category.
+  if (updates.category === 'upgrade_summary') {
+    return sendJSON(res, 400, {
+      error: "Category 'upgrade_summary' is deprecated. Write cycle metadata to the `upgrade` object via PUT /api/upgrade-cycle, and archive past cycles via POST /api/upgrade-cycle/start.",
+    });
+  }
   const merged = {
     ...store.items[idx],
     ...updates,

@@ -110,7 +110,7 @@ Each tracked project folder contains a `.openclaw.json`:
 - **Project folder editing** — relocate a project's marker file from the edit modal
 - **Undo system** — snapshot-based, up to 30 levels deep (Ctrl+Z supported)
 - **Offline fallback** — works in-memory if the server is unreachable
-- **Upgrade Reticulator** — operations watchlist for OC upgrade concerns, with its own independent datastore
+- **Upgrade Reticulator** — operations watchlist for OC upgrade concerns, with its own independent datastore. ⚠️ **Read [RETICULATOR.md](RETICULATOR.md) before modifying Reticulator code, data, or vocabularies** — it's the source of truth for the schema and prevents drift.
 - **OC Control** — bounded decision engine using local Ollama/Gemma to plan and execute approved OpenClaw operations
 - **Multi-provider model management** — supports Ollama and OpenAI-compatible providers (e.g. local MLX services) with per-model config, health checks, worker state tracking, idle countdown timers, and offload controls
 - **Zero dependencies** — pure Node.js server, no npm install required

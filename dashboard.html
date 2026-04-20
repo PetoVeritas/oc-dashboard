@@ -1637,6 +1637,7 @@ const RETIC_LEGACY_STATUS_TO_UPGRADE = {
 const RETIC_LEGACY_REVIEW = {
   not_started: 'pending_upgrade_check',
   reviewed: 'still_needed',
+  in_progress: 'pending_upgrade_check', // upgradeStatus value crept into reviewStatus
 };
 
 // ── Retic: Normalization ──
@@ -1673,6 +1674,12 @@ function normalizeReticItem(item) {
   let reviewStatus = item.reviewStatus;
   if (RETIC_LEGACY_REVIEW[reviewStatus]) reviewStatus = RETIC_LEGACY_REVIEW[reviewStatus];
   if (!RETIC_REVIEW_STATUSES.includes(reviewStatus)) reviewStatus = 'pending_upgrade_check';
+  // Semantic-flip fix: `not_reviewed` used to mean the pre-cycle default.
+  // Now it means "intentionally skipped this cycle." If the item isn't
+  // complete, migrate old `not_reviewed` values to pending_upgrade_check.
+  if (reviewStatus === 'not_reviewed' && upgradeStatus !== 'complete') {
+    reviewStatus = 'pending_upgrade_check';
+  }
 
   return {
     id:            item.id || null,

@@ -132,10 +132,13 @@ Each tracked project folder contains a `.openclaw.json`:
 | GET | `/api/config` | View config |
 | PUT | `/api/config` | Update config |
 | POST | `/api/config/roots` | Add a project root directory |
-| GET | `/api/upgrade-items` | List all reticulator items |
+| GET | `/api/upgrade-items` | Get the full reticulator store: `{ upgrade, history, items }` |
 | POST | `/api/upgrade-items` | Create upgrade item |
 | PUT | `/api/upgrade-items/:id` | Update upgrade item |
 | DELETE | `/api/upgrade-items/:id` | Remove upgrade item |
+| GET | `/api/upgrade-cycle` | Get the active upgrade cycle and history |
+| POST | `/api/upgrade-cycle/start` | Start a new cycle: archive current → history, write new active, reset all items' `upgradeStatus`/`reviewStatus` |
+| PUT | `/api/upgrade-cycle` | Update the active cycle (phases, status, completedAt) |
 
 ### OC Control
 

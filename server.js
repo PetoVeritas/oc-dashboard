@@ -390,24 +390,147 @@ async function handleMoveProject(req, res, id) {
 // ── Upgrade Reticulator ──
 const RETIC_FILE = config.reticulatorPath || path.join(LOCAL_DIR, 'upgrade-reticulator.json');
 
-function loadReticulatorItems() {
+// Canonical vocabularies (kept in sync with dashboard.html)
+const RETIC_CATEGORY_MIGRATIONS = {
+  process_improvement: 'workflow_note',
+  config_watch: 'config_check',
+};
+const RETIC_VALID_CATEGORIES = new Set([
+  'local_patch', 'config_check', 'manual_test', 'watch_item', 'workflow_note',
+]);
+const RETIC_VALID_LIFECYCLE = new Set(['active', 'monitoring', 'retired']);
+const RETIC_VALID_UPGRADE_STATUS = new Set([
+  'pending', 'in_progress', 'todo', 'blocked', 'verified', 'complete',
+]);
+const RETIC_VALID_REVIEW_STATUS = new Set([
+  'pending_upgrade_check', 'still_needed', 'upstream_reported',
+  'needs_retest', 'verified', 'blocked', 'not_reviewed',
+]);
+// Legacy status/reviewStatus → upgradeStatus/reviewStatus mappings
+const RETIC_LEGACY_STATUS_TO_LIFECYCLE = {
+  active: 'active',
+  monitoring: 'monitoring',
+  retired: 'retired',
+  resolved: 'retired',
+};
+const RETIC_LEGACY_STATUS_TO_UPGRADE = {
+  todo: 'todo',
+  in_progress: 'in_progress',
+  complete: 'complete',
+  verified: 'verified',
+  pending: 'pending',
+};
+const RETIC_LEGACY_REVIEW = {
+  not_started: 'pending_upgrade_check',
+  reviewed: 'still_needed', // generic "reviewed" best-mapped to "still_needed"
+};
+
+function _emptyStore() {
+  return { upgrade: null, history: [], items: [] };
+}
+
+// Migrate an item shape in-place (mutates and returns). Idempotent.
+function _migrateItem(item, historyBucket) {
+  if (!item || typeof item !== 'object') return null;
+
+  // Category: merge process_improvement / config_watch into canonical
+  if (RETIC_CATEGORY_MIGRATIONS[item.category]) {
+    item.category = RETIC_CATEGORY_MIGRATIONS[item.category];
+  }
+  // upgrade_summary items get pulled out entirely — caller handles bucket
+  if (item.category === 'upgrade_summary') {
+    if (Array.isArray(historyBucket)) historyBucket.push({ _migratedFromItem: item.id, item });
+    return null;
+  }
+
+  // Status split: legacy `status` might contain either lifecycle or upgradeStatus values.
+  // If `upgradeStatus` is already present, trust it and coerce `status` to a lifecycle value.
+  // Otherwise, infer from the legacy value.
+  const legacy = item.status;
+  if (item.upgradeStatus) {
+    if (!RETIC_VALID_LIFECYCLE.has(item.status)) {
+      // status is stale or missing; default to active (most patches are active)
+      item.status = RETIC_LEGACY_STATUS_TO_LIFECYCLE[legacy] || 'active';
+    }
+  } else if (RETIC_LEGACY_STATUS_TO_UPGRADE[legacy]) {
+    // Legacy value was a cycle-progress value — split it
+    item.upgradeStatus = RETIC_LEGACY_STATUS_TO_UPGRADE[legacy];
+    item.status = 'active';
+  } else if (RETIC_LEGACY_STATUS_TO_LIFECYCLE[legacy]) {
+    item.status = RETIC_LEGACY_STATUS_TO_LIFECYCLE[legacy];
+    if (!item.upgradeStatus) item.upgradeStatus = 'pending';
+  } else {
+    item.status = item.status || 'active';
+    item.upgradeStatus = item.upgradeStatus || 'pending';
+  }
+
+  // reviewStatus legacy mapping
+  if (RETIC_LEGACY_REVIEW[item.reviewStatus]) {
+    item.reviewStatus = RETIC_LEGACY_REVIEW[item.reviewStatus];
+  }
+  if (!item.reviewStatus) item.reviewStatus = 'pending_upgrade_check';
+
+  // Coerce unknowns to safe defaults so the UI can always render
+  if (!RETIC_VALID_CATEGORIES.has(item.category)) item.category = 'watch_item';
+  if (!RETIC_VALID_LIFECYCLE.has(item.status)) item.status = 'active';
+  if (!RETIC_VALID_UPGRADE_STATUS.has(item.upgradeStatus)) item.upgradeStatus = 'pending';
+  if (!RETIC_VALID_REVIEW_STATUS.has(item.reviewStatus)) item.reviewStatus = 'pending_upgrade_check';
+
+  return item;
+}
+
+function loadReticulatorStore() {
   try {
     if (fs.existsSync(RETIC_FILE)) {
-      const data = JSON.parse(fs.readFileSync(RETIC_FILE, 'utf-8'));
-      return data.items || [];
+      const raw = JSON.parse(fs.readFileSync(RETIC_FILE, 'utf-8'));
+      const store = {
+        upgrade: raw.upgrade || null,
+        history: Array.isArray(raw.history) ? raw.history : [],
+        items: Array.isArray(raw.items) ? raw.items : [],
+      };
+      const extracted = [];
+      store.items = store.items.map(i => _migrateItem(i, extracted)).filter(Boolean);
+      // Any extracted upgrade_summary rows become history entries (one-time migration)
+      if (extracted.length) {
+        for (const entry of extracted) {
+          store.history.push({
+            from: entry.item.from || entry.item.title || null,
+            to: entry.item.to || null,
+            summary: entry.item.summary || entry.item.title || null,
+            migratedFromItem: entry._migratedFromItem,
+            status: 'complete',
+            archivedAt: new Date().toISOString(),
+          });
+        }
+      }
+      return store;
     }
   } catch (e) {
     console.error('Error loading reticulator:', e.message);
   }
-  return [];
+  return _emptyStore();
 }
 
+function saveReticulatorStore(store) {
+  const toWrite = {
+    upgrade: store.upgrade || null,
+    history: Array.isArray(store.history) ? store.history : [],
+    items: Array.isArray(store.items) ? store.items : [],
+  };
+  fs.writeFileSync(RETIC_FILE, JSON.stringify(toWrite, null, 2));
+}
+
+// Legacy helpers — preserved for any call site, now delegate to the store
+function loadReticulatorItems() { return loadReticulatorStore().items; }
 function saveReticulatorItems(items) {
-  fs.writeFileSync(RETIC_FILE, JSON.stringify({ items }, null, 2));
+  const store = loadReticulatorStore();
+  store.items = items;
+  saveReticulatorStore(store);
 }
 
 function handleGetUpgradeItems(req, res) {
-  sendJSON(res, 200, loadReticulatorItems());
+  // Return the full store so the UI gets upgrade + history + items
+  sendJSON(res, 200, loadReticulatorStore());
 }
 
 async function handleCreateUpgradeItem(req, res) {
@@ -419,6 +542,7 @@ async function handleCreateUpgradeItem(req, res) {
     category: body.category || 'watch_item',
     area: body.area || 'general',
     status: body.status || 'active',
+    upgradeStatus: body.upgradeStatus || 'pending',
     priority: body.priority || 'medium',
     summary: body.summary || '',
     whyItMatters: body.whyItMatters || '',
@@ -426,46 +550,149 @@ async function handleCreateUpgradeItem(req, res) {
     verification: body.verification || '',
     tags: body.tags || [],
     notes: body.notes || [],
-    reviewStatus: body.reviewStatus || 'not_reviewed',
+    reviewStatus: body.reviewStatus || 'pending_upgrade_check',
     reviewedForVersion: body.reviewedForVersion || null,
     lastReviewedAt: body.lastReviewedAt || null,
     currentFinding: body.currentFinding || null,
+    // Patch-specific fields
+    patchFile: body.patchFile || null,
+    patchTarget: body.patchTarget || null,
+    batchGroup: body.batchGroup ?? null,
+    upstreamIssue: body.upstreamIssue || null,
+    upstreamFixedIn: body.upstreamFixedIn || null,
     reportedUpstream: body.reportedUpstream || false,
     lastCheckedAt: null,
     createdAt: now,
     updatedAt: now,
   };
-  const items = loadReticulatorItems();
-  items.push(item);
-  saveReticulatorItems(items);
+  _migrateItem(item); // normalize / coerce
+  const store = loadReticulatorStore();
+  store.items.push(item);
+  saveReticulatorStore(store);
   sendJSON(res, 201, item);
 }
 
 async function handleUpdateUpgradeItem(req, res, id) {
-  const items = loadReticulatorItems();
-  const idx = items.findIndex(i => i.id === id);
+  const store = loadReticulatorStore();
+  const idx = store.items.findIndex(i => i.id === id);
   if (idx === -1) return sendJSON(res, 404, { error: 'Item not found' });
 
   const updates = await readBody(req);
   const merged = {
-    ...items[idx],
+    ...store.items[idx],
     ...updates,
-    id: items[idx].id,
-    createdAt: items[idx].createdAt,
+    id: store.items[idx].id,
+    createdAt: store.items[idx].createdAt,
     updatedAt: new Date().toISOString(),
   };
-  items[idx] = merged;
-  saveReticulatorItems(items);
+  _migrateItem(merged);
+  store.items[idx] = merged;
+  saveReticulatorStore(store);
   sendJSON(res, 200, merged);
 }
 
 function handleDeleteUpgradeItem(req, res, id) {
-  let items = loadReticulatorItems();
-  const idx = items.findIndex(i => i.id === id);
+  const store = loadReticulatorStore();
+  const idx = store.items.findIndex(i => i.id === id);
   if (idx === -1) return sendJSON(res, 404, { error: 'Item not found' });
-  items.splice(idx, 1);
-  saveReticulatorItems(items);
+  store.items.splice(idx, 1);
+  saveReticulatorStore(store);
   sendJSON(res, 200, { message: 'Item removed', id });
+}
+
+// ── Upgrade cycle management ──
+
+async function handleStartUpgradeCycle(req, res) {
+  const body = await readBody(req);
+  if (!body.from || !body.to) {
+    return sendJSON(res, 400, { error: 'Missing required fields: from, to' });
+  }
+  const store = loadReticulatorStore();
+  const now = new Date().toISOString();
+
+  // Archive the existing active cycle (if any) into history
+  if (store.upgrade) {
+    const archived = {
+      ...store.upgrade,
+      status: store.upgrade.status === 'complete' ? 'complete' : (store.upgrade.status || 'archived'),
+      completedAt: store.upgrade.completedAt || now,
+      archivedAt: now,
+    };
+    store.history = Array.isArray(store.history) ? store.history : [];
+    store.history.unshift(archived);
+  }
+
+  // Write the new active cycle
+  store.upgrade = {
+    from: body.from,
+    to: body.to,
+    commits: body.commits ?? null,
+    filesChanged: body.filesChanged ?? null,
+    startedAt: body.startedAt || now,
+    status: body.status || 'in_progress',
+    completedAt: null,
+    phases: body.phases || {
+      check_updates: { status: 'pending' },
+      download_verify: { status: 'pending' },
+      risk_analysis: { status: 'pending' },
+      executive_summary: { status: 'pending' },
+      backup: { status: 'pending' },
+      upgrade: { status: 'pending' },
+      post_verify: { status: 'pending' },
+      aar: { status: 'pending' },
+    },
+  };
+
+  // Reset all items for the new cycle
+  let resetCount = 0;
+  for (const item of store.items) {
+    // Retired items stay retired — don't wake them up
+    if (item.status === 'retired') continue;
+    item.upgradeStatus = 'pending';
+    item.reviewStatus = 'pending_upgrade_check';
+    item.updatedAt = now;
+    resetCount++;
+  }
+
+  saveReticulatorStore(store);
+  sendJSON(res, 200, {
+    message: 'Upgrade cycle started',
+    upgrade: store.upgrade,
+    itemsReset: resetCount,
+    historyLength: store.history.length,
+  });
+}
+
+async function handleUpdateUpgradeCycle(req, res) {
+  const updates = await readBody(req);
+  const store = loadReticulatorStore();
+  if (!store.upgrade) {
+    return sendJSON(res, 404, { error: 'No active upgrade cycle to update' });
+  }
+  // Merge top-level fields
+  const merged = { ...store.upgrade, ...updates };
+  // Deep-merge phases if provided
+  if (updates.phases) {
+    merged.phases = { ...(store.upgrade.phases || {}) };
+    for (const [k, v] of Object.entries(updates.phases)) {
+      merged.phases[k] = { ...(merged.phases[k] || {}), ...v };
+    }
+  }
+  // If status is flipping to complete, stamp completedAt
+  if (updates.status === 'complete' && !merged.completedAt) {
+    merged.completedAt = new Date().toISOString();
+  }
+  store.upgrade = merged;
+  saveReticulatorStore(store);
+  sendJSON(res, 200, store.upgrade);
+}
+
+function handleGetUpgradeCycle(req, res) {
+  const store = loadReticulatorStore();
+  sendJSON(res, 200, {
+    upgrade: store.upgrade,
+    history: store.history,
+  });
 }
 
 // ── OC Control: Ollama Integration ──
@@ -1439,6 +1666,17 @@ const server = http.createServer(async (req, res) => {
       const id = decodeURIComponent(upgradeMatch[1]);
       if (req.method === 'PUT') return await handleUpdateUpgradeItem(req, res, id);
       if (req.method === 'DELETE') return handleDeleteUpgradeItem(req, res, id);
+    }
+
+    // Upgrade cycle management
+    if (pathname === '/api/upgrade-cycle' && req.method === 'GET') {
+      return handleGetUpgradeCycle(req, res);
+    }
+    if (pathname === '/api/upgrade-cycle/start' && req.method === 'POST') {
+      return await handleStartUpgradeCycle(req, res);
+    }
+    if (pathname === '/api/upgrade-cycle' && req.method === 'PUT') {
+      return await handleUpdateUpgradeCycle(req, res);
     }
 
     if (pathname === '/api/browse' && req.method === 'GET') {

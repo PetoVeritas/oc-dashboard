@@ -33,24 +33,44 @@
   .layout { display: flex; min-height: 100vh; }
 
   /* Sidebar */
-  .sidebar { width: 192px; background: var(--surface); border-right: 1px solid var(--border); padding: 14px 0; flex-shrink: 0; display: flex; flex-direction: column; }
-  .sidebar-brand { display: flex; align-items: center; gap: 8px; padding: 0 16px 14px; border-bottom: 1px solid var(--border); }
-  .sidebar-logo { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; }
-  .sidebar-brand h1 { font-size: 14px; font-weight: 700; }
-  .sidebar-brand h1 span { color: var(--accent); }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 14px 0; flex-shrink: 0; display: flex; flex-direction: column; transition: width 0.18s ease; }
+  .sidebar-brand { display: flex; align-items: center; gap: 8px; padding: 0 12px 14px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; cursor: pointer; transition: transform 0.15s; flex-shrink: 0; }
+  .sidebar-logo:hover { transform: scale(1.08); }
+  .sidebar-brand-title { font-size: 14px; font-weight: 700; flex: 1; overflow: hidden; white-space: nowrap; }
+  .sidebar-brand-title span { color: var(--accent); }
+  .sidebar-toggle { background: none; border: 1px solid transparent; color: var(--text-dim); cursor: pointer; padding: 2px 7px; border-radius: 5px; font-size: 15px; line-height: 1; transition: all 0.15s; flex-shrink: 0; }
+  .sidebar-toggle:hover { border-color: var(--border); color: var(--text); background: var(--surface2); }
   .sidebar-nav { padding: 10px 8px; flex: 1; overflow-y: auto; }
   .nav-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); padding: 8px 10px 4px; }
-  .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; font-size: 12px; color: var(--text-dim); cursor: pointer; margin-bottom: 1px; transition: background 0.15s, color 0.15s; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; font-size: 12px; color: var(--text-dim); cursor: pointer; margin-bottom: 1px; transition: background 0.15s, color 0.15s; white-space: nowrap; overflow: hidden; }
   .nav-item:hover { background: var(--surface2); color: var(--text); }
   .nav-item.active { background: var(--accent-glow); color: var(--accent); font-weight: 600; }
-  .nav-icon { width: 18px; text-align: center; font-size: 14px; }
-  .nav-count { margin-left: auto; font-size: 11px; background: var(--surface2); padding: 2px 8px; border-radius: 10px; font-weight: 500; color: var(--text-dim); }
+  .nav-icon { width: 18px; text-align: center; font-size: 14px; flex-shrink: 0; }
+  .nav-count { margin-left: auto; font-size: 11px; background: var(--surface2); padding: 2px 8px; border-radius: 10px; font-weight: 500; color: var(--text-dim); flex-shrink: 0; }
   .nav-project-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .nav-project-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sidebar-footer { padding: 8px; border-top: 1px solid var(--border); }
   .sidebar-user { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
   .avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--blue)); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
   .avatar-name { font-size: 12px; font-weight: 500; }
   .avatar-role { font-size: 10px; color: var(--text-dim); }
+
+  /* Sidebar — collapsed (icon-only wedge) */
+  .sidebar.collapsed { width: 48px; }
+  .sidebar.collapsed .sidebar-brand { padding: 0 0 14px; justify-content: center; gap: 0; }
+  .sidebar.collapsed .sidebar-brand-title,
+  .sidebar.collapsed .sidebar-toggle { display: none; }
+  .sidebar.collapsed .sidebar-nav { padding: 10px 4px; }
+  .sidebar.collapsed .nav-label { display: none; }
+  .sidebar.collapsed #sidebar-projects { display: none; }
+  .sidebar.collapsed .nav-item { font-size: 0; justify-content: center; padding: 10px 0; gap: 0; margin-bottom: 2px; }
+  .sidebar.collapsed .nav-item .nav-icon { font-size: 16px; width: auto; }
+  .sidebar.collapsed .nav-count { display: none; }
+  .sidebar.collapsed .sidebar-footer { padding: 8px 0; }
+  .sidebar.collapsed .sidebar-user { justify-content: center; padding: 6px 0; gap: 0; }
+  .sidebar.collapsed .avatar-name,
+  .sidebar.collapsed .avatar-role { display: none; }
 
   /* Main */
   .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -196,7 +216,7 @@
   .retic-filter:hover { border-color: var(--accent); color: var(--text); }
   .retic-filter.active { background: var(--accent); color: white; border-color: var(--accent); }
   .retic-list { display: flex; flex-direction: column; gap: 2px; }
-  .retic-row { display: grid; grid-template-columns: 1fr 120px 110px 110px 80px 40px; gap: 8px; align-items: center; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color 0.15s; font-size: 13px; }
+  .retic-row { display: grid; grid-template-columns: 1fr 110px 100px 170px 70px 40px; gap: 10px; align-items: center; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color 0.15s; font-size: 13px; }
   .retic-row:hover { border-color: var(--accent); }
   .retic-row.not-reviewed-current { border-left: 3px solid var(--orange); }
   .retic-row-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -210,11 +230,63 @@
   .retic-cat.watch_item { background: var(--accent-glow); color: var(--accent); }
   .retic-cat.workflow_note { background: var(--green-bg); color: var(--green); }
   /* Item concern status */
+  /* Lifecycle badges (active / monitoring / retired) */
+  .retic-lifecycle { font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 500; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+  .retic-lifecycle::before { content: ''; width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .retic-lifecycle.active { background: var(--green-bg); color: var(--green); }
+  .retic-lifecycle.active::before { background: var(--green); }
+  .retic-lifecycle.monitoring { background: var(--yellow-bg); color: var(--yellow); }
+  .retic-lifecycle.monitoring::before { background: var(--yellow); }
+  .retic-lifecycle.retired { background: var(--surface2); color: var(--text-dim); }
+  .retic-lifecycle.retired::before { background: var(--text-dim); }
+
+  /* Upgrade status badges (this cycle's progress) */
+  .retic-upstatus { font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+  .retic-upstatus.pending { background: var(--surface2); color: var(--text-dim); border: 1px dashed var(--border); }
+  .retic-upstatus.todo { background: var(--orange-bg); color: var(--orange); }
+  .retic-upstatus.in_progress { background: var(--blue-bg); color: var(--blue); }
+  .retic-upstatus.blocked { background: var(--red-bg); color: var(--red); }
+  .retic-upstatus.verified { background: var(--green-bg); color: var(--green); }
+  .retic-upstatus.complete { background: var(--green-bg); color: var(--green); opacity: 0.7; }
+
+  /* Legacy .retic-status kept as alias for any stale references */
   .retic-status { font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
   .retic-status.active { background: var(--green-bg); color: var(--green); }
-  .retic-status.watch { background: var(--blue-bg); color: var(--blue); }
-  .retic-status.testing { background: var(--yellow-bg); color: var(--yellow); }
+  .retic-status.monitoring { background: var(--yellow-bg); color: var(--yellow); }
   .retic-status.retired { background: var(--surface2); color: var(--text-dim); }
+
+  /* Batch group chip */
+  .retic-batch-chip { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: var(--accent-glow); color: var(--accent); font-weight: 600; letter-spacing: 0.2px; margin-left: 4px; }
+  .retic-patch-file { font-size: 10px; color: var(--text-dim); font-family: ui-monospace, Menlo, monospace; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Cycle banner */
+  .retic-cycle-banner { background: linear-gradient(135deg, var(--surface), var(--surface2)); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .retic-cycle-title { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .retic-cycle-title .icon { font-size: 16px; }
+  .retic-cycle-versions { color: var(--accent); }
+  .retic-cycle-meta { font-size: 11px; color: var(--text-dim); }
+  .retic-cycle-phases { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
+  .retic-phase { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 56px; padding: 2px 4px; border-radius: 5px; transition: background 0.15s; }
+  .retic-phase-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); transition: all 0.15s; }
+  .retic-phase-dot.complete { background: var(--green); border-color: var(--green); }
+  .retic-phase-dot.in_progress { background: var(--blue); border-color: var(--blue); box-shadow: 0 0 6px var(--blue); }
+  .retic-phase-dot.blocked { background: var(--red); border-color: var(--red); }
+  .retic-phase-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); }
+  .retic-phase.active .retic-phase-label { color: var(--blue); font-weight: 600; }
+  .retic-phase.complete .retic-phase-label { color: var(--text-dim); }
+  .retic-cycle-actions { display: flex; gap: 8px; margin-left: auto; }
+  .retic-cycle-quick { display: flex; gap: 12px; padding: 0 8px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+  .retic-cycle-quick-stat { display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 2px 8px; border-radius: 5px; transition: background 0.15s; }
+  .retic-cycle-quick-stat:hover { background: var(--surface2); }
+  .retic-cycle-quick-val { font-size: 16px; font-weight: 700; }
+  .retic-cycle-quick-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); }
+  .retic-cycle-banner.inactive { background: var(--surface); padding: 8px 14px; font-size: 12px; color: var(--text-dim); }
+  .retic-cycle-banner.inactive .retic-cycle-title { font-size: 12px; font-weight: 500; color: var(--text-dim); }
+
+  /* Filter chip group */
+  .retic-filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .retic-filter-group-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-right: 2px; }
+  .retic-filter-sep { color: var(--border); margin: 0 4px; font-weight: 400; }
   /* Review status badges */
   .retic-review-badge { font-size: 10px; padding: 3px 9px; border-radius: 4px; font-weight: 600; white-space: nowrap; letter-spacing: 0.3px; }
   .retic-review-badge.not_reviewed { background: var(--surface2); color: var(--text-dim); border: 1px dashed var(--border); }
@@ -230,7 +302,7 @@
   .retic-reviewed-for { font-size: 10px; color: var(--text-dim); white-space: nowrap; }
   .retic-del { width: 24px; height: 24px; border-radius: 6px; background: none; border: 1px solid transparent; color: var(--text-dim); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; transition: all 0.15s; }
   .retic-del:hover { border-color: var(--red); color: var(--red); }
-  .retic-header-row { display: grid; grid-template-columns: 1fr 120px 110px 110px 80px 40px; gap: 8px; padding: 6px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 4px; }
+  .retic-header-row { display: grid; grid-template-columns: 1fr 110px 100px 170px 70px 40px; gap: 10px; padding: 6px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 4px; }
   .retic-header-row .retic-sortable { cursor: pointer; user-select: none; transition: color 0.15s; }
   .retic-header-row .retic-sortable:hover { color: var(--text); }
   .retic-header-row .retic-sort-arrow { margin-left: 3px; font-size: 9px; }
@@ -461,8 +533,9 @@
 <div class="layout">
   <div class="sidebar">
     <div class="sidebar-brand">
-      <div class="sidebar-logo">🦞</div>
-      <h1><span>Open</span>Claw</h1>
+      <div class="sidebar-logo" onclick="toggleSidebar()" title="Toggle sidebar">🦞</div>
+      <h1 class="sidebar-brand-title"><span>Open</span>Claw</h1>
+      <button class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
     </div>
     <div class="sidebar-nav">
       <div class="nav-item active" data-view="board" onclick="switchView('board')"><span class="nav-icon">▦</span> Board View</div>
@@ -921,7 +994,7 @@ function renderSidebar() {
     return `
       <div class="nav-item">
         <div class="nav-project-dot" style="background:var(--${color})"></div>
-        ${esc(p.name)}
+        <span class="nav-project-name" title="${esc(p.name)}">${esc(p.name)}</span>
         <span class="nav-count">${pct}%</span>
       </div>
     `;
@@ -1469,7 +1542,13 @@ document.getElementById('search-input').addEventListener('input', e => {
 // ── Retic: State ──
 const retic = {
   items: [],
-  filter: 'all',
+  upgrade: null,  // active upgrade cycle (from server)
+  history: [],    // archived past cycles
+  filters: {
+    lifecycle: 'all',    // all | active | monitoring | retired
+    category: 'all',     // all | local_patch | config_check | manual_test | watch_item | workflow_note
+    cycle: 'all',        // all | action_needed | done | skipped
+  },
   deleteId: null,
   editItem: null,
   loaded: false,
@@ -1479,50 +1558,129 @@ const retic = {
 
 // ── Retic: Constants ──
 const RETIC_CATEGORIES = {
-  local_patch:   'Local Patch',
-  config_check:  'Config Check',
-  manual_test:   'Manual Test',
-  watch_item:    'Watch Item',
+  local_patch:    'Local Patch',
+  config_check:   'Config Check',
+  manual_test:    'Manual Test',
+  watch_item:     'Watch Item',
   workflow_note:  'Workflow Note',
 };
 
-const RETIC_STATUSES = ['active', 'watch', 'testing', 'retired'];
+// Lifecycle — answers "is this patch still in play?" — persists across cycles
+const RETIC_LIFECYCLE = ['active', 'monitoring', 'retired'];
+const RETIC_LIFECYCLE_LABELS = {
+  active: 'Active',
+  monitoring: 'Monitoring',
+  retired: 'Retired',
+};
 
-const RETIC_STATUS_LABELS = {
-  active: 'Active', watch: 'Watch', testing: 'Testing', retired: 'Retired',
+// Upgrade status — "where is this in the *current* cycle?" — resets each cycle
+const RETIC_UPGRADE_STATUSES = ['pending', 'todo', 'in_progress', 'blocked', 'verified', 'complete'];
+const RETIC_UPGRADE_STATUS_LABELS = {
+  pending: 'Pending',
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  blocked: 'Blocked',
+  verified: 'Verified',
+  complete: 'Complete',
 };
 
 const RETIC_PRIORITIES = ['high', 'medium', 'low'];
 
-// Statuses that mean "no longer actionable"
+// Lifecycle values that mean "no longer actionable"
 const RETIC_CLOSED_STATUSES = new Set(['retired']);
 
 // Review statuses (post-upgrade review layer)
 const RETIC_REVIEW_STATUSES = [
-  'not_reviewed', 'verified', 'still_needed', 'needs_retest', 'blocked', 'upstream_reported'
+  'pending_upgrade_check', 'still_needed', 'upstream_reported',
+  'needs_retest', 'verified', 'blocked', 'not_reviewed'
 ];
 
 const RETIC_REVIEW_LABELS = {
-  not_reviewed: 'Not Reviewed',
-  verified: 'Verified',
+  pending_upgrade_check: 'Pending Check',
   still_needed: 'Still Needed',
-  needs_retest: 'Needs Retest',
-  blocked: 'Blocked',
   upstream_reported: 'Reported to OC',
+  needs_retest: 'Needs Retest',
+  verified: 'Verified',
+  blocked: 'Blocked',
+  not_reviewed: 'Not Reviewed',
+};
+
+// Upgrade status groups for filter chips
+const RETIC_CYCLE_GROUPS = {
+  action_needed: new Set(['pending', 'todo', 'in_progress', 'blocked']),
+  done:          new Set(['verified', 'complete']),
+  skipped:       new Set([]), // populated by lifecycle=retired
+};
+
+// Canonical phase ordering/labels for cycle banner
+const RETIC_PHASES = [
+  { key: 'check_updates',     label: 'Check' },
+  { key: 'download_verify',   label: 'Download' },
+  { key: 'risk_analysis',     label: 'Risk' },
+  { key: 'executive_summary', label: 'Exec' },
+  { key: 'backup',            label: 'Backup' },
+  { key: 'upgrade',           label: 'Upgrade' },
+  { key: 'post_verify',       label: 'Verify' },
+  { key: 'aar',               label: 'AAR' },
+];
+
+// Legacy → canonical migration (belt-and-suspenders — server does this too)
+const RETIC_LEGACY_STATUS_TO_LIFECYCLE = {
+  active: 'active', monitoring: 'monitoring', retired: 'retired',
+  resolved: 'retired', watch: 'monitoring', testing: 'active',
+  upstreamed: 'retired',
+};
+const RETIC_LEGACY_STATUS_TO_UPGRADE = {
+  todo: 'todo', in_progress: 'in_progress', complete: 'complete',
+  verified: 'verified', pending: 'pending',
+};
+const RETIC_LEGACY_REVIEW = {
+  not_started: 'pending_upgrade_check',
+  reviewed: 'still_needed',
 };
 
 // ── Retic: Normalization ──
 function normalizeReticItem(item) {
-  // Migrate legacy statuses
-  let status = item.status || 'active';
-  if (status === 'upstreamed' || status === 'resolved') status = 'active';
+  // Migrate category values
+  let category = item.category || 'watch_item';
+  if (category === 'process_improvement') category = 'workflow_note';
+  if (category === 'config_watch') category = 'config_check';
+  if (!RETIC_CATEGORIES[category]) category = 'watch_item';
+
+  // Split legacy `status` into lifecycle + upgradeStatus
+  let lifecycle = item.status;
+  let upgradeStatus = item.upgradeStatus;
+
+  if (upgradeStatus) {
+    // upgradeStatus present — coerce `status` to a lifecycle value
+    if (!RETIC_LIFECYCLE.includes(lifecycle)) {
+      lifecycle = RETIC_LEGACY_STATUS_TO_LIFECYCLE[lifecycle] || 'active';
+    }
+  } else if (RETIC_LEGACY_STATUS_TO_UPGRADE[lifecycle]) {
+    upgradeStatus = RETIC_LEGACY_STATUS_TO_UPGRADE[lifecycle];
+    lifecycle = 'active';
+  } else if (RETIC_LEGACY_STATUS_TO_LIFECYCLE[lifecycle]) {
+    lifecycle = RETIC_LEGACY_STATUS_TO_LIFECYCLE[lifecycle];
+    upgradeStatus = 'pending';
+  } else {
+    lifecycle = lifecycle || 'active';
+    upgradeStatus = 'pending';
+  }
+  if (!RETIC_LIFECYCLE.includes(lifecycle)) lifecycle = 'active';
+  if (!RETIC_UPGRADE_STATUSES.includes(upgradeStatus)) upgradeStatus = 'pending';
+
+  // reviewStatus migration
+  let reviewStatus = item.reviewStatus;
+  if (RETIC_LEGACY_REVIEW[reviewStatus]) reviewStatus = RETIC_LEGACY_REVIEW[reviewStatus];
+  if (!RETIC_REVIEW_STATUSES.includes(reviewStatus)) reviewStatus = 'pending_upgrade_check';
 
   return {
     id:            item.id || null,
     title:         item.title || 'Untitled',
-    category:      item.category || 'watch_item',
+    category:      category,
     area:          item.area || '',
-    status:        status,
+    status:        lifecycle,      // lifecycle
+    upgradeStatus: upgradeStatus,  // this-cycle progress
     priority:      item.priority || 'medium',
     summary:       item.summary || '',
     whyItMatters:  item.whyItMatters || '',
@@ -1534,11 +1692,17 @@ function normalizeReticItem(item) {
     notes:         Array.isArray(item.notes) ? item.notes.map(n => ({
                      text: n.text || '', date: n.date || null
                    })) : [],
-    reviewStatus:       item.reviewStatus || 'not_reviewed',
+    reviewStatus:       reviewStatus,
     reviewedForVersion: item.reviewedForVersion || null,
     lastReviewedAt:     item.lastReviewedAt || null,
     currentFinding:     item.currentFinding || null,
     reportedUpstream:   !!item.reportedUpstream,
+    // Patch-specific fields
+    patchFile:      item.patchFile || null,
+    patchTarget:    item.patchTarget || null,
+    batchGroup:     (item.batchGroup === 0 || item.batchGroup) ? item.batchGroup : null,
+    upstreamIssue:  item.upstreamIssue || null,
+    upstreamFixedIn: item.upstreamFixedIn || null,
     lastCheckedAt: item.lastCheckedAt || null,
     createdAt:     item.createdAt || null,
     updatedAt:     item.updatedAt || null,
@@ -1547,14 +1711,21 @@ function normalizeReticItem(item) {
 
 function newReticItem() {
   return normalizeReticItem({
-    status: 'active', category: 'watch_item', priority: 'medium',
-    reviewStatus: 'not_reviewed', reportedUpstream: false,
+    status: 'active', upgradeStatus: 'pending', category: 'watch_item', priority: 'medium',
+    reviewStatus: 'pending_upgrade_check', reportedUpstream: false,
   });
 }
 
 // ── Retic: Helpers ──
-function reticStatusLabel(status) {
-  return RETIC_STATUS_LABELS[status] || status || 'Unknown';
+function reticLifecycleLabel(status) {
+  return RETIC_LIFECYCLE_LABELS[status] || status || 'Unknown';
+}
+
+// Legacy alias — retained so any old call site doesn't break
+function reticStatusLabel(status) { return reticLifecycleLabel(status); }
+
+function reticUpgradeStatusLabel(us) {
+  return RETIC_UPGRADE_STATUS_LABELS[us] || us || 'Pending';
 }
 
 function reticCategoryLabel(cat) {
@@ -1566,7 +1737,7 @@ function reticPriorityLabel(prio) {
 }
 
 function reticReviewLabel(rs) {
-  return RETIC_REVIEW_LABELS[rs] || rs || 'Not Reviewed';
+  return RETIC_REVIEW_LABELS[rs] || rs || 'Pending Check';
 }
 
 function isReticClosed(status) {
@@ -1575,6 +1746,20 @@ function isReticClosed(status) {
 
 function isReticActionable(item) {
   return !isReticClosed(item.status);
+}
+
+// Format an upgrade cycle duration label ("Started 19h ago", etc.)
+function reticCycleStartedText(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return 'Starting soon';
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Just started';
+  if (minutes < 60) return `Started ${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Started ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `Started ${days}d ago`;
 }
 
 function reticRelativeDate(dateStr) {
@@ -1605,11 +1790,31 @@ function reticSummaryCounts(items) {
   return { notReviewed, needsAttention, reportedUpstream, verified, total: items.filter(i => !isReticClosed(i.status)).length };
 }
 
+// New: three independent axes — lifecycle, category, cycle-progress
+function reticMatchesFilters(item, filters) {
+  // Lifecycle
+  if (filters.lifecycle !== 'all' && item.status !== filters.lifecycle) return false;
+  // Category
+  if (filters.category !== 'all' && item.category !== filters.category) return false;
+  // Cycle progress (composed groups)
+  if (filters.cycle === 'action_needed') {
+    if (!RETIC_CYCLE_GROUPS.action_needed.has(item.upgradeStatus)) return false;
+    // Action items shouldn't include retired
+    if (item.status === 'retired') return false;
+  } else if (filters.cycle === 'done') {
+    if (!RETIC_CYCLE_GROUPS.done.has(item.upgradeStatus)) return false;
+  } else if (filters.cycle === 'skipped') {
+    if (item.status !== 'retired') return false;
+  }
+  return true;
+}
+
+// Back-compat shim if anything else still calls the old name
 function reticMatchesFilter(item, filter) {
   if (filter === 'all') return true;
   if (filter === 'needs_attention') return ['still_needed', 'needs_retest', 'blocked'].includes(item.reviewStatus);
   if (filter === 'reported_upstream') return !!item.reportedUpstream;
-  if (RETIC_STATUSES.includes(filter)) return item.status === filter;
+  if (RETIC_LIFECYCLE.includes(filter)) return item.status === filter;
   if (RETIC_REVIEW_STATUSES.includes(filter)) return item.reviewStatus === filter;
   if (filter in RETIC_CATEGORIES) return item.category === filter;
   return true;
@@ -1623,20 +1828,32 @@ function reticMatchesSearch(item, query) {
       || item.area.toLowerCase().includes(q);
 }
 
-function reticFilterBtn(key, label) {
-  const active = retic.filter === key ? 'active' : '';
-  return `<button class="retic-filter ${active}" onclick="setReticFilter('${key}')">${label}</button>`;
+function reticFilterBtn(axis, value, label) {
+  const active = retic.filters[axis] === value ? 'active' : '';
+  return `<button class="retic-filter ${active}" onclick="setReticFilter('${axis}', '${value}')">${label}</button>`;
 }
 
 // ── Retic: Data Loading ──
 async function loadReticItems() {
   try {
     const raw = await api('GET', '/upgrade-items');
-    retic.items = raw.map(normalizeReticItem);
+    // Server now returns the full store: { upgrade, history, items }
+    // For backward compatibility, also accept a raw array
+    if (Array.isArray(raw)) {
+      retic.items = raw.map(normalizeReticItem);
+      retic.upgrade = null;
+      retic.history = [];
+    } else {
+      retic.items = (raw.items || []).map(normalizeReticItem);
+      retic.upgrade = raw.upgrade || null;
+      retic.history = Array.isArray(raw.history) ? raw.history : [];
+    }
     retic.loaded = true;
   } catch (e) {
     console.warn('Failed to load reticulator items:', e.message);
     retic.items = [];
+    retic.upgrade = null;
+    retic.history = [];
   }
 }
 
@@ -1647,20 +1864,21 @@ async function renderReticulator() {
   const q = searchQuery;
 
   let filtered = retic.items.filter(i =>
-    reticMatchesFilter(i, retic.filter) && reticMatchesSearch(i, q)
+    reticMatchesFilters(i, retic.filters) && reticMatchesSearch(i, q)
   );
 
   // Sort
-  const reviewOrder = { not_reviewed: 0, still_needed: 1, retest: 2, blocked: 3, verified: 4, not_applicable: 5 };
-  const statusOrder = { active: 0, testing: 1, watch: 2, retired: 3 };
+  const reviewOrder = { pending_upgrade_check: 0, still_needed: 1, needs_retest: 2, blocked: 3, upstream_reported: 4, verified: 5, not_reviewed: 6 };
+  const lifecycleOrder = { active: 0, monitoring: 1, retired: 2 };
+  const upgradeOrder = { blocked: 0, todo: 1, in_progress: 2, pending: 3, verified: 4, complete: 5 };
   const prioOrder = { high: 0, medium: 1, low: 2 };
   filtered.sort((a, b) => {
     let va, vb;
     switch (retic.sortKey) {
       case 'title': va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase(); break;
-      case 'reviewStatus': va = reviewOrder[a.reviewStatus] ?? 99; vb = reviewOrder[b.reviewStatus] ?? 99; break;
-      case 'status': va = statusOrder[a.status] ?? 99; vb = statusOrder[b.status] ?? 99; break;
-      case 'reviewedForVersion': va = a.reviewedForVersion || ''; vb = b.reviewedForVersion || ''; break;
+      case 'category': va = a.category || ''; vb = b.category || ''; break;
+      case 'lifecycle': va = lifecycleOrder[a.status] ?? 99; vb = lifecycleOrder[b.status] ?? 99; break;
+      case 'upgradeStatus': va = upgradeOrder[a.upgradeStatus] ?? 99; vb = upgradeOrder[b.upgradeStatus] ?? 99; break;
       case 'priority': va = prioOrder[a.priority] ?? 1; vb = prioOrder[b.priority] ?? 1; break;
       default: va = 0; vb = 0;
     }
@@ -1669,92 +1887,180 @@ async function renderReticulator() {
     return 0;
   });
 
-  const counts = reticSummaryCounts(retic.items);
-
   container.innerHTML = `
-    <div class="retic-summary">
-      <div class="retic-stat">
-        <div class="stat-label">Not Reviewed</div>
-        <div class="stat-value" style="color:var(--orange)">${counts.notReviewed}</div>
-        <div class="stat-sub">of ${counts.total} open items</div>
-      </div>
-      <div class="retic-stat">
-        <div class="stat-label">Needs Attention</div>
-        <div class="stat-value" style="color:var(--yellow)">${counts.needsAttention}</div>
-        <div class="stat-sub">still needed / retest / blocked</div>
-      </div>
-      <div class="retic-stat">
-        <div class="stat-label">Verified</div>
-        <div class="stat-value" style="color:var(--green)">${counts.verified}</div>
-        <div class="stat-sub">good this upgrade</div>
-      </div>
-      <div class="retic-stat">
-        <div class="stat-label">Reported to OC</div>
-        <div class="stat-value" style="color:var(--accent)">${counts.reportedUpstream}</div>
-        <div class="stat-sub">bugs / issues / requests</div>
-      </div>
-    </div>
-    <div class="retic-toolbar">
-      <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim);margin-right:4px">Review:</span>
-      ${reticFilterBtn('all', 'All')}
-      ${reticFilterBtn('not_reviewed', 'Not Reviewed')}
-      ${reticFilterBtn('needs_attention', 'Needs Attention')}
-      ${reticFilterBtn('verified', 'Verified')}
-      ${reticFilterBtn('reported_upstream', 'Reported to OC')}
-      <span style="color:var(--border);margin:0 4px">|</span>
-      <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim);margin-right:4px">Concern:</span>
-      ${reticFilterBtn('active', 'Active')}
-      ${reticFilterBtn('watch', 'Watch')}
-      ${reticFilterBtn('testing', 'Testing')}
-      ${reticFilterBtn('retired', 'Retired')}
-      <span style="flex:1"></span>
-      <button class="btn btn-primary" onclick="openReticCreate()" style="font-size:12px;padding:6px 14px">+ New Item</button>
-    </div>
+    ${renderReticCycleBanner()}
+    ${renderReticFilterBar()}
     <div class="retic-header-row">
       <div class="retic-sortable" onclick="reticSort('title')">Item ${reticSortArrow('title')}</div>
-      <div class="retic-sortable" onclick="reticSort('reviewStatus')">Review Status ${reticSortArrow('reviewStatus')}</div>
-      <div class="retic-sortable" onclick="reticSort('status')">Concern ${reticSortArrow('status')}</div>
-      <div class="retic-sortable" onclick="reticSort('reviewedForVersion')">Reviewed For ${reticSortArrow('reviewedForVersion')}</div>
+      <div class="retic-sortable" onclick="reticSort('category')">Category ${reticSortArrow('category')}</div>
+      <div class="retic-sortable" onclick="reticSort('lifecycle')">Lifecycle ${reticSortArrow('lifecycle')}</div>
+      <div class="retic-sortable" onclick="reticSort('upgradeStatus')">This Cycle ${reticSortArrow('upgradeStatus')}</div>
       <div class="retic-sortable" onclick="reticSort('priority')">Priority ${reticSortArrow('priority')}</div>
       <div></div>
     </div>
     <div class="retic-list">
-      ${filtered.length === 0 ? `<div class="retic-empty">${retic.items.length === 0 ? 'No upgrade items yet. Click "+ New Item" to create one.' : 'No items match this filter.'}</div>` : ''}
+      ${filtered.length === 0 ? `<div class="retic-empty">${retic.items.length === 0 ? 'No upgrade items yet. Click "+ New Item" to create one.' : 'No items match these filters.'}</div>` : ''}
       ${filtered.map(renderReticRow).join('')}
+    </div>
+  `;
+}
+
+function renderReticCycleBanner() {
+  const u = retic.upgrade;
+  if (!u) {
+    // No active cycle — show a collapsed inactive strip (or a "start" hint)
+    const last = (retic.history && retic.history[0]) || null;
+    const lastLabel = last && last.from && last.to
+      ? `Last: ${esc(last.from)} → ${esc(last.to)}${last.status ? ` · ${esc(last.status)}` : ''}`
+      : 'No active upgrade cycle';
+    return `
+      <div class="retic-cycle-banner inactive">
+        <div class="retic-cycle-title">${lastLabel}</div>
+      </div>
+    `;
+  }
+
+  const phases = u.phases || {};
+  const phaseHTML = RETIC_PHASES.map(p => {
+    const s = (phases[p.key] && phases[p.key].status) || 'pending';
+    const isActive = s === 'in_progress';
+    const isComplete = s === 'complete';
+    const classes = ['retic-phase'];
+    if (isActive) classes.push('active');
+    if (isComplete) classes.push('complete');
+    return `
+      <div class="${classes.join(' ')}" title="${p.label}: ${s}">
+        <div class="retic-phase-dot ${s}"></div>
+        <div class="retic-phase-label">${p.label}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Quick stat counts (against items, excluding retired)
+  let toDo = 0, inProgress = 0, verified = 0, blocked = 0;
+  for (const it of retic.items) {
+    if (it.status === 'retired') continue;
+    if (it.upgradeStatus === 'todo' || it.upgradeStatus === 'pending') toDo++;
+    else if (it.upgradeStatus === 'in_progress') inProgress++;
+    else if (it.upgradeStatus === 'verified') verified++;
+    else if (it.upgradeStatus === 'blocked') blocked++;
+  }
+
+  const metaParts = [];
+  if (u.commits != null) metaParts.push(`${u.commits.toLocaleString()} commits`);
+  if (u.filesChanged != null) metaParts.push(`${u.filesChanged.toLocaleString()} files`);
+  const metaLine = metaParts.join(' · ');
+  const startedLine = reticCycleStartedText(u.startedAt);
+
+  return `
+    <div class="retic-cycle-banner">
+      <div>
+        <div class="retic-cycle-title">
+          <span class="icon">🔄</span>
+          <span>Upgrade</span>
+          <span class="retic-cycle-versions">${esc(u.from || '?')} → ${esc(u.to || '?')}</span>
+        </div>
+        <div class="retic-cycle-meta">${metaLine}${metaLine && startedLine ? ' · ' : ''}${startedLine}</div>
+      </div>
+      <div class="retic-cycle-phases">${phaseHTML}</div>
+      <div class="retic-cycle-quick">
+        <div class="retic-cycle-quick-stat" onclick="setReticFilter('cycle', 'action_needed')" title="Filter to action-needed items">
+          <div class="retic-cycle-quick-val" style="color:var(--orange)">${toDo}</div>
+          <div class="retic-cycle-quick-lbl">To do</div>
+        </div>
+        <div class="retic-cycle-quick-stat" onclick="setReticFilter('cycle', 'action_needed')" title="Filter to action-needed items">
+          <div class="retic-cycle-quick-val" style="color:var(--blue)">${inProgress}</div>
+          <div class="retic-cycle-quick-lbl">WIP</div>
+        </div>
+        <div class="retic-cycle-quick-stat" onclick="setReticFilter('cycle', 'done')" title="Filter to verified items">
+          <div class="retic-cycle-quick-val" style="color:var(--green)">${verified}</div>
+          <div class="retic-cycle-quick-lbl">Verified</div>
+        </div>
+        <div class="retic-cycle-quick-stat" onclick="setReticFilter('cycle', 'action_needed')" title="Filter to action-needed items">
+          <div class="retic-cycle-quick-val" style="color:var(--red)">${blocked}</div>
+          <div class="retic-cycle-quick-lbl">Blocked</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderReticFilterBar() {
+  const catLabels = [
+    ['all',           'All'],
+    ['local_patch',   'Patches'],
+    ['config_check',  'Config'],
+    ['manual_test',   'Tests'],
+    ['watch_item',    'Watch'],
+    ['workflow_note', 'Notes'],
+  ];
+  return `
+    <div class="retic-toolbar">
+      <div class="retic-filter-group">
+        <span class="retic-filter-group-label">Lifecycle:</span>
+        ${reticFilterBtn('lifecycle', 'all', 'All')}
+        ${reticFilterBtn('lifecycle', 'active', 'Active')}
+        ${reticFilterBtn('lifecycle', 'monitoring', 'Monitoring')}
+        ${reticFilterBtn('lifecycle', 'retired', 'Retired')}
+      </div>
+      <span class="retic-filter-sep">|</span>
+      <div class="retic-filter-group">
+        <span class="retic-filter-group-label">Category:</span>
+        ${catLabels.map(([k, v]) => reticFilterBtn('category', k, v)).join('')}
+      </div>
+      <span class="retic-filter-sep">|</span>
+      <div class="retic-filter-group">
+        <span class="retic-filter-group-label">This Cycle:</span>
+        ${reticFilterBtn('cycle', 'all', 'All')}
+        ${reticFilterBtn('cycle', 'action_needed', 'Action Needed')}
+        ${reticFilterBtn('cycle', 'done', 'Done')}
+        ${reticFilterBtn('cycle', 'skipped', 'Skipped')}
+      </div>
+      <span style="flex:1"></span>
+      <button class="btn btn-primary" onclick="openReticCreate()" style="font-size:12px;padding:6px 14px">+ New Item</button>
     </div>
   `;
 }
 
 function renderReticRow(item) {
   const closed = isReticClosed(item.status);
-  const notReviewedClass = (!closed && item.reviewStatus === 'not_reviewed') ? 'not-reviewed-current' : '';
-  const reviewedForText = item.reviewedForVersion
-    ? `v${esc(item.reviewedForVersion)}`
-    : '—';
-  const reviewedAtText = item.lastReviewedAt ? reticRelativeDate(item.lastReviewedAt) : '';
+  const needsAttention = !closed && (item.upgradeStatus === 'todo' || item.upgradeStatus === 'blocked' || item.reviewStatus === 'pending_upgrade_check');
+  const highlightClass = needsAttention ? 'not-reviewed-current' : '';
   const findingText = item.currentFinding ? esc(item.currentFinding) : '';
   const upstreamTag = item.reportedUpstream ? `<span class="retic-upstream-tag">OC</span>` : '';
+  const batchChip = (item.batchGroup != null) ? `<span class="retic-batch-chip">batch ${esc(String(item.batchGroup))}</span>` : '';
+  const patchFileLine = (item.patchFile && item.category === 'local_patch')
+    ? `<div class="retic-patch-file" title="${esc(item.patchFile)}">${esc(item.patchFile)}</div>`
+    : '';
+  const reviewText = reticReviewLabel(item.reviewStatus);
 
   return `
-    <div class="retic-row ${notReviewedClass}" style="${closed ? 'opacity:0.5' : ''}" onclick="openReticDetail('${item.id}')">
+    <div class="retic-row ${highlightClass}" style="${closed ? 'opacity:0.5' : ''}" onclick="openReticDetail('${item.id}')">
       <div>
-        <div class="retic-row-title">${esc(item.title)} ${upstreamTag}</div>
-        <div class="retic-row-sub">
-          <span class="retic-cat ${item.category}">${reticCategoryLabel(item.category)}</span>
-          ${item.area ? `<span class="retic-row-area">${esc(item.area)}</span>` : ''}
-        </div>
+        <div class="retic-row-title">${esc(item.title)} ${upstreamTag}${batchChip}</div>
+        ${patchFileLine}
         ${findingText ? `<div class="retic-row-finding">${findingText}</div>` : ''}
+        ${item.area ? `<div class="retic-row-area" style="margin-top:2px">${esc(item.area)}</div>` : ''}
       </div>
-      <div><span class="retic-review-badge ${item.reviewStatus}">${reticReviewLabel(item.reviewStatus)}</span></div>
-      <div><span class="retic-status ${item.status}">${reticStatusLabel(item.status)}</span></div>
-      <div class="retic-reviewed-for">${reviewedForText}${reviewedAtText ? `<br>${reviewedAtText}` : ''}</div>
+      <div><span class="retic-cat ${item.category}">${reticCategoryLabel(item.category)}</span></div>
+      <div><span class="retic-lifecycle ${item.status}">${reticLifecycleLabel(item.status)}</span></div>
+      <div>
+        <span class="retic-upstatus ${item.upgradeStatus}">${reticUpgradeStatusLabel(item.upgradeStatus)}</span>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:3px" title="${esc(findingText || '')}">${reviewText}</div>
+      </div>
       <div><span class="retic-prio ${item.priority}">${reticPriorityLabel(item.priority).toUpperCase()}</span></div>
       <div><button class="retic-del" onclick="event.stopPropagation(); openReticConfirm('${item.id}')" title="Delete">✕</button></div>
     </div>`;
 }
 
-function setReticFilter(f) {
-  retic.filter = f;
+function setReticFilter(axis, value) {
+  // Back-compat: if called with one arg (legacy), treat it as lifecycle
+  if (value === undefined) {
+    value = axis;
+    axis = 'lifecycle';
+  }
+  if (!retic.filters.hasOwnProperty(axis)) return;
+  retic.filters[axis] = value;
   renderReticulator();
 }
 
@@ -1802,8 +2108,11 @@ function renderReticModalBody() {
   const catOpts = Object.entries(RETIC_CATEGORIES).map(([k, v]) =>
     `<option value="${k}" ${i.category === k ? 'selected' : ''}>${v}</option>`
   ).join('');
-  const statusOpts = RETIC_STATUSES.map(s =>
-    `<option value="${s}" ${i.status === s ? 'selected' : ''}>${reticStatusLabel(s)}</option>`
+  const lifecycleOpts = RETIC_LIFECYCLE.map(s =>
+    `<option value="${s}" ${i.status === s ? 'selected' : ''}>${reticLifecycleLabel(s)}</option>`
+  ).join('');
+  const upgradeStatusOpts = RETIC_UPGRADE_STATUSES.map(s =>
+    `<option value="${s}" ${i.upgradeStatus === s ? 'selected' : ''}>${reticUpgradeStatusLabel(s)}</option>`
   ).join('');
   const prioOpts = RETIC_PRIORITIES.map(p =>
     `<option value="${p}" ${i.priority === p ? 'selected' : ''}>${reticPriorityLabel(p)}</option>`
@@ -1818,44 +2127,46 @@ function renderReticModalBody() {
     ? `✓ ${reticLastCheckedText(i.lastCheckedAt)}`
     : 'Mark as checked';
 
+  // Patch-detail block only shown for local_patch category
+  const isPatch = (i.category === 'local_patch');
+  const patchBlock = isPatch ? `
+    <div class="retic-review-panel">
+      <h4>Patch Details</h4>
+      <div class="retic-review-grid">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Patch File</label>
+          <input class="form-input" id="retic-patch-file" value="${esc(i.patchFile || '')}" placeholder="e.g. monitor-CByY9P1A.js" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Patch Target / Pattern</label>
+          <input class="form-input" id="retic-patch-target" value="${esc(i.patchTarget || '')}" placeholder="e.g. shouldEmitSignalReactionNotification" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Batch Group</label>
+          <input class="form-input" id="retic-batch-group" type="number" min="1" value="${i.batchGroup != null ? esc(String(i.batchGroup)) : ''}" placeholder="e.g. 2" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Upstream Fixed In</label>
+          <input class="form-input" id="retic-upstream-fixed" value="${esc(i.upstreamFixedIn || '')}" placeholder="e.g. 2026.4.15" />
+        </div>
+        <div class="form-group retic-review-full" style="margin-bottom:0">
+          <label class="form-label">Upstream Issue URL</label>
+          <input class="form-input" id="retic-upstream-issue" value="${esc(i.upstreamIssue || '')}" placeholder="https://github.com/openclaw/openclaw/issues/..." />
+        </div>
+      </div>
+    </div>
+  ` : '';
+
   body.innerHTML = `
     <div class="form-group">
       <label class="form-label">Title</label>
       <input class="form-input" id="retic-title" value="${esc(i.title)}" />
     </div>
 
-    <div class="retic-review-panel">
-      <h4>Post-Upgrade Review</h4>
-      <div class="retic-review-grid">
-        <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">Review Status</label>
-          <select class="form-select" id="retic-review-status">${reviewOpts}</select>
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">Reviewed for Version</label>
-          <input class="form-input" id="retic-reviewed-version" value="${esc(i.reviewedForVersion || '')}" placeholder="e.g. 0.24.1" />
-        </div>
-        <div class="form-group retic-review-full" style="margin-bottom:0">
-          <label class="form-label">Current Finding</label>
-          <input class="form-input" id="retic-current-finding" value="${esc(i.currentFinding || '')}" placeholder="Short summary of review result..." />
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label class="retic-upstream-toggle">
-            <input type="checkbox" id="retic-reported-upstream" ${i.reportedUpstream ? 'checked' : ''} />
-            Reported upstream to OpenClaw
-          </label>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <button class="retic-mark-checked" onclick="markReticReviewed()">Mark Reviewed Now</button>
-          <span style="font-size:11px;color:var(--text-dim)">Last reviewed: ${lastReviewedText}</span>
-        </div>
-      </div>
-    </div>
-
     <div class="retic-detail-grid">
       <div class="form-group">
-        <label class="form-label">Concern Status</label>
-        <select class="form-select" id="retic-status">${statusOpts}</select>
+        <label class="form-label">Lifecycle</label>
+        <select class="form-select" id="retic-status">${lifecycleOpts}</select>
       </div>
       <div class="form-group">
         <label class="form-label">Priority</label>
@@ -1863,11 +2174,45 @@ function renderReticModalBody() {
       </div>
       <div class="form-group">
         <label class="form-label">Category</label>
-        <select class="form-select" id="retic-category">${catOpts}</select>
+        <select class="form-select" id="retic-category" onchange="reticEditFieldChanged('category', this.value)">${catOpts}</select>
       </div>
       <div class="form-group">
         <label class="form-label">Area</label>
         <input class="form-input" id="retic-area" value="${esc(i.area)}" placeholder="e.g. signal-bridge, webchat, core" />
+      </div>
+    </div>
+
+    ${patchBlock}
+
+    <div class="retic-review-panel">
+      <h4>This Cycle — Review</h4>
+      <div class="retic-review-grid">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Cycle Status</label>
+          <select class="form-select" id="retic-upgrade-status">${upgradeStatusOpts}</select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Review Finding</label>
+          <select class="form-select" id="retic-review-status">${reviewOpts}</select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Reviewed for Version</label>
+          <input class="form-input" id="retic-reviewed-version" value="${esc(i.reviewedForVersion || '')}" placeholder="e.g. 2026.4.15" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="retic-upstream-toggle">
+            <input type="checkbox" id="retic-reported-upstream" ${i.reportedUpstream ? 'checked' : ''} />
+            Reported upstream to OpenClaw
+          </label>
+        </div>
+        <div class="form-group retic-review-full" style="margin-bottom:0">
+          <label class="form-label">Current Finding (notes from this cycle's review)</label>
+          <input class="form-input" id="retic-current-finding" value="${esc(i.currentFinding || '')}" placeholder="Short summary of review result..." />
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="retic-mark-checked" onclick="markReticReviewed()">Mark Reviewed Now</button>
+          <span style="font-size:11px;color:var(--text-dim)">Last reviewed: ${lastReviewedText}</span>
+        </div>
       </div>
     </div>
     <div class="form-group">
@@ -1965,25 +2310,51 @@ function markReticReviewed() {
   showToast('Marked as reviewed');
 }
 
+// When the user changes category mid-edit, mirror it into editItem so the patch block
+// can appear/disappear when re-rendering.
+function reticEditFieldChanged(field, value) {
+  if (!retic.editItem) return;
+  // Capture current field values before re-render so user input isn't lost
+  _captureReticModalInputs();
+  retic.editItem[field] = value;
+  renderReticModalBody();
+}
+
+function _captureReticModalInputs() {
+  const i = retic.editItem;
+  if (!i) return;
+  const get = id => { const el = document.getElementById(id); return el ? el.value : null; };
+  const chk = id => { const el = document.getElementById(id); return el ? el.checked : false; };
+  if (get('retic-title') != null) i.title = get('retic-title').trim();
+  if (get('retic-area') != null) i.area = get('retic-area').trim();
+  if (get('retic-status') != null) i.status = get('retic-status');
+  if (get('retic-upgrade-status') != null) i.upgradeStatus = get('retic-upgrade-status');
+  if (get('retic-priority') != null) i.priority = get('retic-priority');
+  if (get('retic-category') != null) i.category = get('retic-category');
+  if (get('retic-summary') != null) i.summary = get('retic-summary').trim();
+  if (get('retic-why') != null) i.whyItMatters = get('retic-why').trim();
+  if (get('retic-verification') != null) i.verification = get('retic-verification').trim();
+  if (get('retic-tags') != null) i.tags = get('retic-tags').split(',').map(t => t.trim()).filter(Boolean);
+  if (get('retic-review-status') != null) i.reviewStatus = get('retic-review-status');
+  if (get('retic-reviewed-version') != null) i.reviewedForVersion = get('retic-reviewed-version').trim() || null;
+  if (get('retic-current-finding') != null) i.currentFinding = get('retic-current-finding').trim() || null;
+  if (document.getElementById('retic-reported-upstream')) i.reportedUpstream = chk('retic-reported-upstream');
+  // Patch fields (may not exist if category isn't local_patch)
+  if (get('retic-patch-file') != null) i.patchFile = get('retic-patch-file').trim() || null;
+  if (get('retic-patch-target') != null) i.patchTarget = get('retic-patch-target').trim() || null;
+  if (get('retic-batch-group') != null) {
+    const bg = get('retic-batch-group').trim();
+    i.batchGroup = bg === '' ? null : Number(bg);
+  }
+  if (get('retic-upstream-fixed') != null) i.upstreamFixedIn = get('retic-upstream-fixed').trim() || null;
+  if (get('retic-upstream-issue') != null) i.upstreamIssue = get('retic-upstream-issue').trim() || null;
+}
+
 async function saveReticItem() {
   if (!retic.editItem) return;
 
-  const item = {
-    ...retic.editItem,
-    title:              document.getElementById('retic-title').value.trim(),
-    category:           document.getElementById('retic-category').value,
-    area:               document.getElementById('retic-area').value.trim(),
-    status:             document.getElementById('retic-status').value,
-    priority:           document.getElementById('retic-priority').value,
-    summary:            document.getElementById('retic-summary').value.trim(),
-    whyItMatters:       document.getElementById('retic-why').value.trim(),
-    verification:       document.getElementById('retic-verification').value.trim(),
-    tags:               document.getElementById('retic-tags').value.split(',').map(t => t.trim()).filter(Boolean),
-    reviewStatus:       document.getElementById('retic-review-status').value,
-    reviewedForVersion: document.getElementById('retic-reviewed-version').value.trim() || null,
-    currentFinding:     document.getElementById('retic-current-finding').value.trim() || null,
-    reportedUpstream:   document.getElementById('retic-reported-upstream').checked,
-  };
+  _captureReticModalInputs();
+  const item = { ...retic.editItem };
 
   if (!item.title) {
     document.getElementById('retic-title').focus();
@@ -2776,8 +3147,36 @@ async function occClearChat() {
   }
 }
 
+// ── Sidebar collapse ──
+const SIDEBAR_COLLAPSED_KEY = 'ocdash.sidebarCollapsed';
+
+function applySidebarCollapsed(collapsed) {
+  const sidebar = document.querySelector('.sidebar');
+  const btn = document.getElementById('sidebar-toggle-btn');
+  if (!sidebar) return;
+  sidebar.classList.toggle('collapsed', collapsed);
+  if (btn) {
+    btn.textContent = collapsed ? '›' : '‹';
+    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  }
+}
+
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const collapsed = !sidebar.classList.contains('collapsed');
+  applySidebarCollapsed(collapsed);
+  try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch {}
+}
+
+function restoreSidebarState() {
+  let collapsed = false;
+  try { collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch {}
+  applySidebarCollapsed(collapsed);
+}
+
 // ── Initialization ──
 async function init() {
+  restoreSidebarState();
   try {
     const data = await api('GET', '/projects');
     projects = data.map(normalizeProject);

@@ -580,7 +580,8 @@ async function handleCreateUpgradeItem(req, res) {
     upstreamIssue: body.upstreamIssue || null,
     upstreamFixedIn: body.upstreamFixedIn || null,
     reportedUpstream: body.reportedUpstream || false,
-    lastCheckedAt: null,
+    lastCheckedAt: body.lastCheckedAt || null,
+    cycleUpdatedAt: body.cycleUpdatedAt || now,
     createdAt: now,
     updatedAt: now,
   };

@@ -57,6 +57,7 @@ how agents and external tools should write.
 
   "reviewedForVersion": "OC vX.Y.Z this review is against",
   "lastReviewedAt":     "ISO string",
+  "cycleUpdatedAt":     "ISO string for last this-cycle field/check/review update",
   "currentFinding":     "free-text verdict for this cycle",
   "reportedUpstream":   true,
 
@@ -91,8 +92,8 @@ how agents and external tools should write.
 
 ### Optional content
 `area`, `summary`, `whyItMatters`, `checklist`, `verification`, `tags`,
-`notes`, `reviewedForVersion`, `lastReviewedAt`, `currentFinding`,
-`reportedUpstream`.
+`notes`, `reviewedForVersion`, `lastReviewedAt`, `cycleUpdatedAt`,
+`currentFinding`, `reportedUpstream`.
 
 ### Patch-specific (only meaningful when `category === "local_patch"`)
 `patchFile`, `patchTarget`, `batchGroup`, `upstreamIssue`, `upstreamFixedIn`,
@@ -127,6 +128,16 @@ question.
 | `blocked`     | Stuck waiting on something. |
 | `verified`    | Patch applied and retested OK. |
 | `complete`    | Fully resolved for this cycle. |
+
+
+### Cycle Date column
+
+The Reticulator list shows **Cycle Date** next to **This Cycle**. It is not a
+generic item modified date. It reflects the last time this-cycle review/progress
+state changed: `upgradeStatus`, `reviewStatus`, `reviewedForVersion`,
+`currentFinding`, `lastCheckedAt`, or `lastReviewedAt`. New items initialize it
+on create. Older items may fall back visually to `lastReviewedAt` /
+`lastCheckedAt` until they are saved again.
 
 ### 3. `reviewStatus` — review verdict (resets each cycle)
 
@@ -235,6 +246,11 @@ for cycle-specific metadata that isn't (yet) a declared field.
 Cycle phases (the dots in the banner), in order:
 `check_updates → download_verify → risk_analysis → executive_summary →
 backup → upgrade → post_verify → aar`.
+
+Informal operator alias: the banner of phase lights can be referred to as the
+**Ret phase tracker**. If Mauricio says "move the Ret phase tracker forward" or
+"the Ret phase tracker is stuck on Risk," treat that as referring to this
+canonical ordered phase sequence.
 
 `PUT /api/upgrade-cycle` deep-merges phase changes and auto-stamps
 `completedAt` when overall status flips to `complete`.

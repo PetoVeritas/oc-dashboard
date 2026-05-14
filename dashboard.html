@@ -216,13 +216,14 @@
   .retic-filter:hover { border-color: var(--accent); color: var(--text); }
   .retic-filter.active { background: var(--accent); color: white; border-color: var(--accent); }
   .retic-list { display: flex; flex-direction: column; gap: 2px; }
-  .retic-row { display: grid; grid-template-columns: 1fr 110px 100px 170px 70px 40px; gap: 10px; align-items: center; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color 0.15s; font-size: 13px; }
+  .retic-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px 100px 104px 82px 74px 40px; column-gap: 12px; align-items: center; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color 0.15s; font-size: 13px; }
   .retic-row:hover { border-color: var(--accent); }
   .retic-row.not-reviewed-current { border-left: 3px solid var(--orange); }
+  .retic-row > div { min-width: 0; }
   .retic-row-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .retic-row-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
   .retic-row-area { font-size: 11px; color: var(--text-dim); }
-  .retic-row-finding { font-size: 11px; color: var(--text-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; max-width: 400px; }
+  .retic-row-finding { font-size: 11px; color: var(--text-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; width: 100%; }
   .retic-cat { font-size: 10px; padding: 3px 8px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
   .retic-cat.local_patch { background: var(--orange-bg); color: var(--orange); }
   .retic-cat.config_check { background: var(--blue-bg); color: var(--blue); }
@@ -302,7 +303,7 @@
   .retic-reviewed-for { font-size: 10px; color: var(--text-dim); white-space: nowrap; }
   .retic-del { width: 24px; height: 24px; border-radius: 6px; background: none; border: 1px solid transparent; color: var(--text-dim); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; transition: all 0.15s; }
   .retic-del:hover { border-color: var(--red); color: var(--red); }
-  .retic-header-row { display: grid; grid-template-columns: 1fr 110px 100px 170px 70px 40px; gap: 10px; padding: 6px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 4px; }
+  .retic-header-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px 100px 104px 82px 74px 40px; column-gap: 12px; padding: 6px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 4px; }
   .retic-header-row .retic-sortable { cursor: pointer; user-select: none; transition: color 0.15s; }
   .retic-header-row .retic-sortable:hover { color: var(--text); }
   .retic-header-row .retic-sort-arrow { margin-left: 3px; font-size: 9px; }
@@ -526,6 +527,28 @@
   .occ-launch-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); font-weight: 600; }
   .occ-ctx-preview { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text); }
   .occ-ctx-preview .occ-ctx-source { color: var(--text-dim); font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; font-family: inherit; }
+
+  @media (max-width: 760px) {
+    body { overflow-x: hidden; }
+    .layout { flex-direction: column; min-height: 100dvh; }
+    .sidebar { width: 100%; max-height: 42vh; border-right: none; border-bottom: 1px solid var(--border); }
+    .sidebar.collapsed { width: 100%; max-height: 48px; overflow: hidden; }
+    .sidebar.collapsed .sidebar-nav,
+    .sidebar.collapsed .sidebar-footer { display: none; }
+    .main { min-height: 0; overflow: visible; }
+    .topbar { align-items: flex-start; gap: 10px; padding: 10px 12px; flex-direction: column; }
+    .topbar-actions { width: 100%; gap: 8px; flex-wrap: wrap; }
+    .search { flex: 1 1 180px; min-width: 0; width: auto; }
+    .summary { padding: 10px 12px; overflow-x: auto; }
+    .stat-card { min-width: 128px; }
+    .board { padding: 12px; gap: 12px; }
+    .column { min-width: 82vw; max-width: 82vw; }
+    .list-view { padding: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .list-table { min-width: 820px; }
+    .list-table th, .list-table td { padding: 10px 9px; }
+    .list-components-summary { max-width: 240px; }
+    .retic-view, .occ-view { padding: 12px; overflow-x: auto; }
+  }
 </style>
 </head>
 <body>
@@ -703,7 +726,7 @@
 
 <script>
 // ── Config ──
-const API = 'http://localhost:3001/api';
+const API = `${window.location.origin}/api`;
 const COLUMNS = [
   { key: 'planning', title: 'Planning', color: 'var(--blue)' },
   { key: 'in_progress', title: 'In Progress', color: 'var(--yellow)' },
@@ -733,7 +756,20 @@ async function api(method, path, body) {
 }
 
 // Normalize API project data to dashboard format
+const VALID_PROJECT_STATUSES = new Set(['planning', 'in_progress', 'review', 'complete']);
+const VALID_PRIORITIES = new Set(['low', 'medium', 'high']);
 const VALID_COMP_STATUSES = new Set(['todo', 'wip', 'review', 'done']);
+
+function normalizeProjectStatus(s) {
+  if (VALID_PROJECT_STATUSES.has(s)) return s;
+  if (s === 'active' || s === 'working' || s === 'wip') return 'in_progress';
+  if (s === 'done' || s === 'completed') return 'complete';
+  return 'planning';
+}
+
+function normalizePriority(p) {
+  return VALID_PRIORITIES.has(p) ? p : 'medium';
+}
 
 function normalizeCompStatus(s) {
   return VALID_COMP_STATUSES.has(s) ? s : 'todo';
@@ -745,7 +781,10 @@ function normalizeProject(p) {
     // notes array → single note string for display (latest first)
     note: Array.isArray(p.notes) && p.notes.length > 0 ? p.notes[0].text : (p.note || ''),
     notes: Array.isArray(p.notes) ? p.notes : [],
-    // Normalize component statuses for backward compatibility
+    // Normalize project/component fields for backward compatibility
+    status: normalizeProjectStatus(p.status),
+    priority: normalizePriority(p.priority),
+    description: p.description || p.summary || '',
     components: (p.components || []).map(c => ({ ...c, status: normalizeCompStatus(c.status) })),
     updatedAt: new Date(p.updatedAt || Date.now()),
     createdAt: p.createdAt || new Date().toISOString(),
@@ -860,7 +899,8 @@ function priorityClass(p) {
   return p === 'high' ? 'priority-high' : p === 'medium' ? 'priority-med' : 'priority-low';
 }
 function priorityLabel(p) {
-  return p.charAt(0).toUpperCase() + p.slice(1);
+  const safe = normalizePriority(p);
+  return safe.charAt(0).toUpperCase() + safe.slice(1);
 }
 function chipPrefix(status) {
   if (status === 'done') return '✓ ';
@@ -885,7 +925,28 @@ function esc(str) {
 // ── View Switching ──
 let currentView = 'board';
 
-function switchView(view) {
+const HASH_VIEW_MAP = {
+  '': 'board',
+  '#': 'board',
+  '#board': 'board',
+  '#list': 'list',
+  '#reticulator': 'reticulator',
+  '#upgrade-reticulator': 'reticulator',
+  '#oc-control': 'oc-control',
+};
+const VIEW_HASH_MAP = {
+  board: '#board',
+  list: '#list',
+  reticulator: '#reticulator',
+  'oc-control': '#oc-control',
+};
+
+function viewFromHash() {
+  const raw = window.location.hash || '#board';
+  return HASH_VIEW_MAP[raw.toLowerCase()] || 'board';
+}
+
+function switchView(view, opts = {}) {
   currentView = view;
   document.querySelectorAll('.nav-item[data-view]').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
@@ -901,10 +962,16 @@ function switchView(view) {
   const titles = { board: 'Project Board', list: 'Project List', reticulator: 'Upgrade Reticulator', 'oc-control': 'OC Control' };
   document.getElementById('view-title').textContent = titles[view] || 'Projects';
   render();
+  if (!opts.fromHash) {
+    const nextHash = VIEW_HASH_MAP[view] || '#board';
+    if (window.location.hash !== nextHash) window.location.hash = nextHash;
+  }
   if (view === 'reticulator') renderReticulator();
   if (view === 'oc-control') { renderOcControl(); occStartPolling(); occLoadChatHistory().then(renderOccChat); }
   else { occStopPolling(); }
 }
+
+window.addEventListener('hashchange', () => switchView(viewFromHash(), { fromHash: true }));
 
 // ── Render ──
 function render() {
@@ -1711,6 +1778,7 @@ function normalizeReticItem(item) {
     upstreamIssue:  item.upstreamIssue || null,
     upstreamFixedIn: item.upstreamFixedIn || null,
     lastCheckedAt: item.lastCheckedAt || null,
+    cycleUpdatedAt: item.cycleUpdatedAt || null,
     createdAt:     item.createdAt || null,
     updatedAt:     item.updatedAt || null,
   };
@@ -1886,6 +1954,7 @@ async function renderReticulator() {
       case 'category': va = a.category || ''; vb = b.category || ''; break;
       case 'lifecycle': va = lifecycleOrder[a.status] ?? 99; vb = lifecycleOrder[b.status] ?? 99; break;
       case 'upgradeStatus': va = upgradeOrder[a.upgradeStatus] ?? 99; vb = upgradeOrder[b.upgradeStatus] ?? 99; break;
+      case 'cycleUpdatedAt': va = Date.parse(a.cycleUpdatedAt || a.lastReviewedAt || a.lastCheckedAt || 0) || 0; vb = Date.parse(b.cycleUpdatedAt || b.lastReviewedAt || b.lastCheckedAt || 0) || 0; break;
       case 'priority': va = prioOrder[a.priority] ?? 1; vb = prioOrder[b.priority] ?? 1; break;
       default: va = 0; vb = 0;
     }
@@ -1902,6 +1971,7 @@ async function renderReticulator() {
       <div class="retic-sortable" onclick="reticSort('category')">Category ${reticSortArrow('category')}</div>
       <div class="retic-sortable" onclick="reticSort('lifecycle')">Lifecycle ${reticSortArrow('lifecycle')}</div>
       <div class="retic-sortable" onclick="reticSort('upgradeStatus')">This Cycle ${reticSortArrow('upgradeStatus')}</div>
+      <div class="retic-sortable" onclick="reticSort('cycleUpdatedAt')" title="Last this-cycle status/review/check update">Cycle Date ${reticSortArrow('cycleUpdatedAt')}</div>
       <div class="retic-sortable" onclick="reticSort('priority')">Priority ${reticSortArrow('priority')}</div>
       <div></div>
     </div>
@@ -2040,6 +2110,8 @@ function renderReticRow(item) {
     ? `<div class="retic-patch-file" title="${esc(item.patchFile)}">${esc(item.patchFile)}</div>`
     : '';
   const reviewText = reticReviewLabel(item.reviewStatus);
+  const cycleDate = item.cycleUpdatedAt || item.lastReviewedAt || item.lastCheckedAt || null;
+  const cycleDateText = cycleDate ? reticRelativeDate(cycleDate) : '—';
 
   return `
     <div class="retic-row ${highlightClass}" style="${closed ? 'opacity:0.5' : ''}" onclick="openReticDetail('${item.id}')">
@@ -2055,6 +2127,7 @@ function renderReticRow(item) {
         <span class="retic-upstatus ${item.upgradeStatus}">${reticUpgradeStatusLabel(item.upgradeStatus)}</span>
         <div style="font-size:10px;color:var(--text-dim);margin-top:3px" title="${esc(findingText || '')}">${reviewText}</div>
       </div>
+      <div style="font-size:11px;color:var(--text-dim)" title="${esc(cycleDate || 'No cycle update yet')}">${cycleDateText}</div>
       <div><span class="retic-prio ${item.priority}">${reticPriorityLabel(item.priority).toUpperCase()}</span></div>
       <div><button class="retic-del" onclick="event.stopPropagation(); openReticConfirm('${item.id}')" title="Delete">✕</button></div>
     </div>`;
@@ -2090,6 +2163,7 @@ function openReticDetail(id) {
   const item = retic.items.find(i => i.id === id);
   if (!item) return;
   retic.editItem = normalizeReticItem(JSON.parse(JSON.stringify(item)));
+  retic.editOriginal = normalizeReticItem(JSON.parse(JSON.stringify(item)));
   document.getElementById('retic-modal-title').textContent = 'Edit Upgrade Item';
   renderReticModalBody();
   document.getElementById('retic-modal-overlay').classList.add('open');
@@ -2097,6 +2171,7 @@ function openReticDetail(id) {
 
 function openReticCreate() {
   retic.editItem = newReticItem();
+  retic.editOriginal = null;
   document.getElementById('retic-modal-title').textContent = 'New Upgrade Item';
   renderReticModalBody();
   document.getElementById('retic-modal-overlay').classList.add('open');
@@ -2105,6 +2180,7 @@ function openReticCreate() {
 function closeReticModal() {
   document.getElementById('retic-modal-overlay').classList.remove('open');
   retic.editItem = null;
+  retic.editOriginal = null;
 }
 
 function renderReticModalBody() {
@@ -2300,14 +2376,18 @@ function addReticNote() {
 
 function markReticChecked() {
   if (!retic.editItem) return;
-  retic.editItem.lastCheckedAt = new Date().toISOString();
+  const now = new Date().toISOString();
+  retic.editItem.lastCheckedAt = now;
+  retic.editItem.cycleUpdatedAt = now;
   renderReticModalBody();
   showToast('Marked as checked');
 }
 
 function markReticReviewed() {
   if (!retic.editItem) return;
-  retic.editItem.lastReviewedAt = new Date().toISOString();
+  const now = new Date().toISOString();
+  retic.editItem.lastReviewedAt = now;
+  retic.editItem.cycleUpdatedAt = now;
   // Also read the version field in case user typed it before clicking
   const versionEl = document.getElementById('retic-reviewed-version');
   if (versionEl && versionEl.value.trim()) {
@@ -2362,6 +2442,9 @@ async function saveReticItem() {
 
   _captureReticModalInputs();
   const item = { ...retic.editItem };
+  const original = retic.editOriginal || {};
+  const cycleTouched = !item.id || item.upgradeStatus !== original.upgradeStatus || item.reviewStatus !== original.reviewStatus || item.reviewedForVersion !== original.reviewedForVersion || item.currentFinding !== original.currentFinding || item.lastCheckedAt !== original.lastCheckedAt || item.lastReviewedAt !== original.lastReviewedAt;
+  if (cycleTouched) item.cycleUpdatedAt = new Date().toISOString();
 
   if (!item.title) {
     document.getElementById('retic-title').focus();
@@ -3189,14 +3272,17 @@ async function init() {
     projects = data.map(normalizeProject);
     serverConnected = true;
     render();
+    switchView(viewFromHash(), { fromHash: true });
     // Preload reticulator data
     await loadReticItems();
+    if (currentView === 'reticulator') renderReticulator();
     console.log(`🦞 OpenClaw: Loaded ${projects.length} projects, ${retic.items.length} upgrade items`);
   } catch (e) {
     serverConnected = false;
     console.warn('🦞 OpenClaw: Server not available, running in offline mode');
     showToast('Server not connected — running offline. Start server.js to enable persistence.');
     render();
+    switchView(viewFromHash(), { fromHash: true });
   }
 }
 
